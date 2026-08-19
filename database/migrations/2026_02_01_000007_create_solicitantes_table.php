@@ -1,0 +1,29 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        // Ciudadanos/solicitantes (datos demograficos del formulario real)
+        Schema::create('solicitantes', function (Blueprint $table) {
+            $table->id();
+            $table->string('nombre', 255);
+            $table->string('correo', 255)->nullable();
+            $table->string('telefono', 255)->nullable();
+            $table->string('genero', 255)->nullable();
+            $table->string('rango_edad', 255)->nullable();
+            $table->string('pais', 255)->nullable();
+            $table->string('departamento', 255)->nullable();
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('solicitantes');
+    }
+};
