@@ -195,6 +195,23 @@
           <p style="font-size:13px; color:#898781;">No hay prórrogas registradas en este expediente.</p>
         @endforelse
 
+        @if (auth()->user()->hasPermission('actuaciones.prorroga') && ! in_array($estadoClave, ['pendiente_validacion', 'finalizada', 'rechazada']))
+          @if ($solicitud->fecha_vencimiento)
+            <form method="POST" action="{{ route('admin.solicitudes.prorroga', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
+              @csrf
+              <label style="font-size:12px; color:#898781;">Nueva fecha de vencimiento (actual: {{ $solicitud->fecha_vencimiento->format('d/m/Y') }})</label>
+              <input type="date" name="fecha_nueva" min="{{ $solicitud->fecha_vencimiento->copy()->addDay()->toDateString() }}" required
+                     style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+              <label style="font-size:12px; color:#898781;">Motivo</label>
+              <textarea name="motivo" rows="2" required placeholder="Por qué se requiere más tiempo…"
+                        style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px; font-family:inherit;"></textarea>
+              <button type="submit" style="align-self:flex-start; background:#4a3aa7; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Registrar prórroga</button>
+            </form>
+          @else
+            <p style="font-size:12px; color:#898781; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">Debe asignarse la contraseña antes de poder registrar una prórroga.</p>
+          @endif
+        @endif
+
       @elseif ($tab === 'recurso')
         @forelse ($solicitud->recursos_revision as $r)
           <div style="border-bottom:1px solid #f0efec; padding:10px 0; font-size:13px;">
@@ -205,6 +222,22 @@
         @empty
           <p style="font-size:13px; color:#898781;">No hay recursos de revisión en este expediente.</p>
         @endforelse
+
+        @if (auth()->user()->hasPermission('actuaciones.recurso') && $estadoClave !== 'pendiente_validacion')
+          <form method="POST" action="{{ route('admin.solicitudes.recurso', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
+            @csrf
+            <label style="font-size:12px; color:#898781;">Correlativo</label>
+            <input name="correlativo" placeholder="ej. 30-2026" required
+                   style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+            <label style="font-size:12px; color:#898781;">Motivo</label>
+            <textarea name="motivo" rows="2" required placeholder="Motivo del recurso de revisión…"
+                      style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px; font-family:inherit;"></textarea>
+            <label style="font-size:12px; color:#898781;">Fecha de vencimiento (opcional)</label>
+            <input type="date" name="fecha_vencimiento" min="{{ now()->toDateString() }}"
+                   style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+            <button type="submit" style="align-self:flex-start; background:#eb6834; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Registrar recurso de revisión</button>
+          </form>
+        @endif
 
       @elseif ($tab === 'aclaracion')
         @forelse ($solicitud->aclaraciones as $a)
@@ -221,6 +254,16 @@
           <p style="font-size:13px; color:#898781;">No hay aclaraciones en este expediente.</p>
         @endforelse
 
+        @if (auth()->user()->hasPermission('actuaciones.aclaracion') && ! in_array($estadoClave, ['pendiente_validacion', 'finalizada', 'rechazada']))
+          <form method="POST" action="{{ route('admin.solicitudes.aclaracion', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
+            @csrf
+            <label style="font-size:12px; color:#898781;">Qué se necesita que el interesado aclare</label>
+            <textarea name="motivo" rows="3" required placeholder="ej. Precisar el período y los programas de interés…"
+                      style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px; font-family:inherit;"></textarea>
+            <button type="submit" style="align-self:flex-start; background:#fab219; color:#3a2f00; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Solicitar aclaración</button>
+          </form>
+        @endif
+
       @elseif ($tab === 'ampliacion')
         @forelse ($solicitud->ampliaciones as $a)
           <div style="border-bottom:1px solid #f0efec; padding:10px 0; font-size:13px;">
@@ -235,6 +278,19 @@
         @empty
           <p style="font-size:13px; color:#898781;">No hay ampliaciones en este expediente.</p>
         @endforelse
+
+        @if (auth()->user()->hasPermission('actuaciones.ampliacion'))
+          <form method="POST" action="{{ route('admin.solicitudes.ampliacion', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
+            @csrf
+            @if ($estadoClave === 'finalizada')
+              <p style="font-size:12px; color:#8a2c22; margin:0;">Este expediente ya está finalizado: la ampliación se registrará como no regulada por la ley, solo con fines de auditoría.</p>
+            @endif
+            <label style="font-size:12px; color:#898781;">Descripción de lo que pide el interesado</label>
+            <textarea name="descripcion" rows="3" required placeholder="Qué información adicional solicita…"
+                      style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px; font-family:inherit;"></textarea>
+            <button type="submit" style="align-self:flex-start; background:#e87ba4; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Registrar ampliación</button>
+          </form>
+        @endif
 
       @elseif ($tab === 'documentos')
         @forelse ($solicitud->documentos as $doc)

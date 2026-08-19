@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ActuacionController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\SolicitudActionController;
 use App\Http\Controllers\Admin\SolicitudController;
@@ -56,4 +57,21 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
     Route::post('/solicitudes/{solicitud}/finalizar', [SolicitudActionController::class, 'finalizar'])
         ->middleware('permission:solicitudes.finalizar')
         ->name('solicitudes.finalizar');
+
+    // --- Actuaciones (Fase 9: prórroga, aclaración, ampliación, recurso) ---
+    Route::post('/solicitudes/{solicitud}/prorroga', [ActuacionController::class, 'crearProrroga'])
+        ->middleware('permission:actuaciones.prorroga')
+        ->name('solicitudes.prorroga');
+
+    Route::post('/solicitudes/{solicitud}/aclaracion', [ActuacionController::class, 'crearAclaracion'])
+        ->middleware('permission:actuaciones.aclaracion')
+        ->name('solicitudes.aclaracion');
+
+    Route::post('/solicitudes/{solicitud}/ampliacion', [ActuacionController::class, 'crearAmpliacion'])
+        ->middleware('permission:actuaciones.ampliacion')
+        ->name('solicitudes.ampliacion');
+
+    Route::post('/solicitudes/{solicitud}/recurso', [ActuacionController::class, 'crearRecurso'])
+        ->middleware('permission:actuaciones.recurso')
+        ->name('solicitudes.recurso');
 });

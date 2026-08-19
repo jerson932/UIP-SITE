@@ -23,6 +23,7 @@ class PermissionSeeder extends Seeder
             'solicitudes.finalizar' => 'Finalizar un expediente',
             'actuaciones.prorroga' => 'Registrar prorroga',
             'actuaciones.aclaracion' => 'Solicitar aclaracion al ciudadano',
+            'actuaciones.ampliacion' => 'Registrar ampliacion de informacion solicitada',
             'actuaciones.recurso' => 'Gestionar recursos de revision',
             'documentos.subir' => 'Cargar documentos al expediente',
             'documentos.publicar' => 'Publicar documentos visibles al ciudadano',
@@ -43,8 +44,8 @@ class PermissionSeeder extends Seeder
             'Usuario UIP' => [
                 'solicitudes.ver', 'solicitudes.validar', 'solicitudes.asignar_contrasena',
                 'solicitudes.finalizar', 'actuaciones.prorroga', 'actuaciones.aclaracion',
-                'actuaciones.recurso', 'documentos.subir', 'documentos.publicar',
-                'correos.enviar', 'correos.ver',
+                'actuaciones.ampliacion', 'actuaciones.recurso', 'documentos.subir',
+                'documentos.publicar', 'correos.enviar', 'correos.ver',
             ],
             'Coordinador' => array_keys($permisos),
             'Enlace' => ['solicitudes.ver', 'documentos.subir', 'correos.ver'],

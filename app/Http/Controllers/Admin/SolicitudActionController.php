@@ -8,6 +8,7 @@ use App\Models\Enlace;
 use App\Models\Solicitud;
 use App\Models\SolicitudEstado;
 use App\Models\SolicitudHistorial;
+use App\Services\NotificacionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -18,11 +19,14 @@ use Illuminate\Validation\ValidationException;
 // (aceptarSolicitud(), asignarNumero(), etc.) y deja su propia entrada en
 // solicitud_historial, tal como exige la spec ("...registrar historial").
 //
-// El envío real de correo (SMTP) es Fase 11 - por ahora solo se deja
-// registrado en el historial que "correspondería enviar" la notificación,
-// para no fingir un envío que todavía no existe.
+// El envío real de correo (SMTP, Fase 11) lo resuelve NotificacionService a
+// partir de las plantillas ya sembradas en "plantillas_correo".
 class SolicitudActionController extends Controller
 {
+    public function __construct(private NotificacionService $notificaciones)
+    {
+    }
+
     private function historial(Solicitud $solicitud, string $texto, ?int $estadoAnteriorId = null, ?int $estadoNuevoId = null): void
     {
         SolicitudHistorial::create([
@@ -106,12 +110,14 @@ class SolicitudActionController extends Controller
             'fecha_vencimiento' => $solicitud->fecha_vencimiento ?? now()->addWeekdays(10)->toDateString(),
         ]);
 
+        $correo = $this->notificaciones->enviar($solicitud, 'solicitud_recibida', [], auth()->id());
+
         $this->historial(
             $solicitud,
             "Contraseña asignada: No. {$data['contrasena']}. Plazo de 10 días hábiles notificado al interesado (prórroga posible hasta el 8vo día)."
         );
 
-        return back()->with('status', 'Contraseña guardada. Correo pendiente de envío al interesado (Fase 11).');
+        return back()->with('status', 'Contraseña guardada. '.$this->notificaciones->describirResultado($correo));
     }
 
     public function asignarDependencia(Request $request, Solicitud $solicitud): RedirectResponse
@@ -131,7 +137,11 @@ class SolicitudActionController extends Controller
             "Asignada a {$dependencia->nombre}".($enlace ? ", enlace {$enlace->nombre}." : '.')
         );
 
-        return back()->with('status', 'Dependencia asignada. Correo pendiente de envío al enlace (Fase 11).');
+        // No hay una plantilla de correo sembrada para notificar al enlace
+        // interno (las plantillas de "plantillas_correo" son todas hacia el
+        // ciudadano) — enviar una aquí requeriría inventar un texto que no
+        // se ha validado contra los correos reales de la UIP.
+        return back()->with('status', 'Dependencia asignada.');
     }
 
     public function finalizar(Request $request, Solicitud $solicitud): RedirectResponse
@@ -149,13 +159,15 @@ class SolicitudActionController extends Controller
             'fecha_finalizacion' => now()->toDateString(),
         ]);
 
+        $correo = $this->notificaciones->enviar($solicitud, 'finalizacion', [], auth()->id());
+
         $this->historial(
             $solicitud,
-            'Solicitud finalizada. Información entregada y notificación pendiente de envío al interesado (Fase 11).',
+            'Solicitud finalizada. Información entregada al interesado.',
             $estadoAnterior,
             $nuevoEstado->id
         );
 
-        return back()->with('status', 'Expediente finalizado.');
+        return back()->with('status', 'Expediente finalizado. '.$this->notificaciones->describirResultado($correo));
     }
 }
