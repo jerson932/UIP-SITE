@@ -119,6 +119,20 @@ class AuthTest extends TestCase
         $response->assertSee($user->email);
     }
 
+    public function test_authenticated_user_visiting_login_is_sent_to_dashboard_not_looped(): void
+    {
+        // Regresión: antes, un usuario ya autenticado que visitaba /login
+        // (middleware "guest") era redirigido a "/", y "/" a su vez
+        // redirigía siempre a /login -> bucle infinito (ERR_TOO_MANY_REDIRECTS).
+        $user = $this->makeUser();
+
+        $response = $this->actingAs($user)->get('/login');
+        $response->assertRedirect(route('admin.dashboard'));
+
+        $response = $this->actingAs($user)->get('/');
+        $response->assertRedirect(route('admin.dashboard'));
+    }
+
     public function test_deactivating_a_user_mid_session_logs_them_out(): void
     {
         $user = $this->makeUser();

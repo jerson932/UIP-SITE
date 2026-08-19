@@ -5,10 +5,14 @@ use App\Http\Controllers\Admin\SolicitudActionController;
 use App\Http\Controllers\Admin\SolicitudController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Auth\LoginController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return redirect()->route('login');
+    // Si ya hay sesión, ir directo al panel; si no, a login. (Antes esto
+    // redirigía siempre a /login, lo que causaba un bucle infinito con el
+    // middleware "guest" para usuarios ya autenticados — ver bootstrap/app.php.)
+    return redirect()->route(Auth::check() ? 'admin.dashboard' : 'login');
 });
 
 // --- Autenticación (Fase 3) ---
