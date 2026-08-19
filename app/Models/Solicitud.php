@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -121,5 +122,76 @@ class Solicitud extends Model
     public function notificaciones()
     {
         return $this->hasMany(Notificacion::class, 'solicitud_id');
+    }
+
+    // --- Helpers de negocio (Fase 6) ---
+
+    /**
+     * Días hábiles restantes hasta fecha_vencimiento (negativo = vencida),
+     * descontando sábados/domingos y feriados registrados. Null si aún no
+     * hay fecha de vencimiento (spec tabla 6: "Días restantes y alertas").
+     */
+    public function diasHabilesRestantes(): ?int
+    {
+        if (! $this->fecha_vencimiento) {
+            return null;
+        }
+
+        $hoy = Carbon::today();
+        $venc = Carbon::parse($this->fecha_vencimiento)->startOfDay();
+
+        if ($hoy->isSameDay($venc)) {
+            return 0;
+        }
+
+        $feriados = Feriado::pluck('fecha')
+            ->map(fn ($f) => Carbon::parse($f)->toDateString())
+            ->all();
+
+        $dir = $venc->gt($hoy) ? 1 : -1;
+        $cursor = $hoy->copy();
+        $count = 0;
+
+        while (! $cursor->isSameDay($venc)) {
+            $cursor->addDays($dir);
+            if ($cursor->isWeekend() || in_array($cursor->toDateString(), $feriados, true)) {
+                continue;
+            }
+            $count += $dir;
+        }
+
+        return $count;
+    }
+
+    /**
+     * ¿Ya se puede asignar contraseña? Solo después de que la solicitud
+     * fue aceptada (validada) — nunca en pendiente_validacion.
+     */
+    public function puedeAsignarContrasena(): bool
+    {
+        return $this->estado?->clave !== 'pendiente_validacion';
+    }
+
+    /**
+     * Búsqueda case-insensitive portable entre motores (Postgres en
+     * producción, SQLite en los tests) usando LOWER()+LIKE en vez de ILIKE
+     * (propio de Postgres) para no atarnos a un solo driver.
+     */
+    public function scopeBuscar($query, ?string $texto)
+    {
+        if (! $texto) {
+            return $query;
+        }
+
+        $like = '%'.mb_strtolower($texto).'%';
+
+        return $query->where(function ($q) use ($like) {
+            $q->whereRaw('LOWER(codigo_ns) LIKE ?', [$like])
+                ->orWhereRaw('LOWER(contrasena) LIKE ?', [$like])
+                ->orWhereHas('solicitante', function ($sq) use ($like) {
+                    $sq->whereRaw('LOWER(nombre) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(correo) LIKE ?', [$like]);
+                });
+        });
     }
 }

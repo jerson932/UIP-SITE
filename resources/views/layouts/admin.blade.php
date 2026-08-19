@@ -31,6 +31,9 @@
   <nav>
     <a href="{{ route('admin.dashboard') }}">Dashboard</a>
     @if ($user = auth()->user())
+      @if ($user->hasPermission('solicitudes.ver'))
+        <a href="{{ route('admin.solicitudes.index') }}">Solicitudes</a>
+      @endif
       @if ($user->hasPermission('usuarios.gestionar'))
         <a href="{{ route('admin.usuarios.index') }}">Usuarios</a>
       @endif
