@@ -83,4 +83,53 @@ class User extends Authenticatable
     {
         return $this->hasMany(Log::class, 'user_id');
     }
+
+    // --- Helpers de autorización (Fase 3) ---
+
+    /**
+     * ¿El usuario tiene el permiso indicado (por clave, ej. 'solicitudes.validar')?
+     * Se apoya en la relación roles->permissions ya definida en Rol/Permission.
+     */
+    public function hasPermission(string $clave): bool
+    {
+        if (! $this->role_id) {
+            return false;
+        }
+
+        return $this->rol
+            ->permissions()
+            ->where('clave', $clave)
+            ->exists();
+    }
+
+    /**
+     * ¿El usuario tiene alguno de los permisos indicados?
+     */
+    public function hasAnyPermission(array $claves): bool
+    {
+        if (! $this->role_id) {
+            return false;
+        }
+
+        return $this->rol
+            ->permissions()
+            ->whereIn('clave', $claves)
+            ->exists();
+    }
+
+    /**
+     * ¿El usuario tiene el rol indicado (por nombre, ej. 'Administrador')?
+     */
+    public function hasRole(string $nombre): bool
+    {
+        return $this->rol && $this->rol->nombre === $nombre;
+    }
+
+    /**
+     * ¿El usuario tiene alguno de los roles indicados?
+     */
+    public function hasAnyRole(array $nombres): bool
+    {
+        return $this->rol && in_array($this->rol->nombre, $nombres, true);
+    }
 }
