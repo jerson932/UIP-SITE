@@ -294,16 +294,43 @@
 
       @elseif ($tab === 'documentos')
         @forelse ($solicitud->documentos as $doc)
-          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0efec; padding:9px 0; font-size:13px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0efec; padding:9px 0; font-size:13px; gap:10px;">
             <div>
               <div>{{ $doc->nombre }}</div>
-              <div style="color:#898781; font-size:12px;">{{ $doc->tipo }} · {{ $doc->created_at?->format('d/m/Y') }}</div>
+              <div style="color:#898781; font-size:12px;">{{ strtoupper($doc->tipo) }} · {{ $doc->created_at?->format('d/m/Y') }}@if ($doc->subido_por_user) · {{ $doc->subido_por_user->name }} @endif</div>
             </div>
-            <span style="font-size:11.5px; color:{{ $doc->visible_ciudadano ? '#0ca30c' : '#898781' }};">{{ $doc->visible_ciudadano ? 'Visible al ciudadano' : 'Interno' }}</span>
+            <div style="display:flex; align-items:center; gap:10px; flex:0 0 auto;">
+              <span style="font-size:11.5px; color:{{ $doc->visible_ciudadano ? '#0ca30c' : '#898781' }};">{{ $doc->visible_ciudadano ? 'Visible al ciudadano' : 'Interno' }}</span>
+              <a href="{{ route('admin.solicitudes.documentos.descargar', [$solicitud, $doc]) }}" style="font-size:12.5px; color:#2a78d6; text-decoration:none;">Descargar</a>
+              @if (! $doc->visible_ciudadano && auth()->user()->hasPermission('documentos.publicar'))
+                <form method="POST" action="{{ route('admin.solicitudes.documentos.publicar', [$solicitud, $doc]) }}" onsubmit="return confirm('¿Publicar este documento? Será visible para el ciudadano.');">
+                  @csrf
+                  <button type="submit" style="background:none; border:1px solid #0ca30c; color:#0ca30c; border-radius:6px; padding:4px 9px; font-size:11.5px; font-weight:600; cursor:pointer;">Publicar</button>
+                </form>
+              @endif
+            </div>
           </div>
         @empty
           <p style="font-size:13px; color:#898781;">No hay documentos cargados.</p>
         @endforelse
+
+        @if (auth()->user()->hasPermission('documentos.subir'))
+          <form method="POST" action="{{ route('admin.solicitudes.documentos.store', $solicitud) }}" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
+            @csrf
+            <label style="font-size:12px; color:#898781;">Archivo (PDF, DOC o DOCX — máx. 10 MB)</label>
+            <input type="file" name="archivo" accept=".pdf,.doc,.docx" required
+                   style="padding:6px 0; font-size:13px;">
+            <label style="font-size:12px; color:#898781;">Nombre a mostrar (opcional)</label>
+            <input name="nombre" placeholder="ej. Resolución de respuesta"
+                   style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+            @if (auth()->user()->hasPermission('documentos.publicar'))
+              <label style="font-size:12.5px; display:flex; align-items:center; gap:6px;">
+                <input type="checkbox" name="visible_ciudadano" value="1"> Publicar como visible al ciudadano
+              </label>
+            @endif
+            <button type="submit" style="align-self:flex-start; background:#2a78d6; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Cargar documento</button>
+          </form>
+        @endif
 
       @elseif ($tab === 'correos')
         @php $correos = $solicitud->correos_enviados->map(fn($c) => (object)['tipo'=>'enviado','asunto'=>$c->asunto,'fecha'=>$c->created_at])->concat($solicitud->correos_recibidos->map(fn($c) => (object)['tipo'=>'recibido','asunto'=>$c->asunto,'fecha'=>$c->created_at]))->sortByDesc('fecha'); @endphp

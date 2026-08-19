@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ActuacionController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DocumentoController;
 use App\Http\Controllers\Admin\SolicitudActionController;
 use App\Http\Controllers\Admin\SolicitudController;
 use App\Http\Controllers\Admin\UsuarioController;
@@ -74,4 +75,17 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
     Route::post('/solicitudes/{solicitud}/recurso', [ActuacionController::class, 'crearRecurso'])
         ->middleware('permission:actuaciones.recurso')
         ->name('solicitudes.recurso');
+
+    // --- Documentos (Fase 10: carga y publicación al ciudadano) ---
+    Route::post('/solicitudes/{solicitud}/documentos', [DocumentoController::class, 'store'])
+        ->middleware('permission:documentos.subir')
+        ->name('solicitudes.documentos.store');
+
+    Route::get('/solicitudes/{solicitud}/documentos/{documento}/descargar', [DocumentoController::class, 'download'])
+        ->middleware('permission:solicitudes.ver')
+        ->name('solicitudes.documentos.descargar');
+
+    Route::post('/solicitudes/{solicitud}/documentos/{documento}/publicar', [DocumentoController::class, 'publicar'])
+        ->middleware('permission:documentos.publicar')
+        ->name('solicitudes.documentos.publicar');
 });
