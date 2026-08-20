@@ -7,19 +7,19 @@ use App\Models\Dependencia;
 use App\Models\Log;
 use App\Models\Solicitud;
 use App\Models\SolicitudEstado;
+use App\Support\SimpleXlsxWriter;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 // Reportes y exportación (permiso 'reportes.exportar' — Administrador,
-// Coordinador y Consulta, según PermissionSeeder). No usamos ninguna
-// librería tipo PhpSpreadsheet/Maatwebsite porque este entorno no tiene
-// acceso a Packagist para instalarla; el CSV con BOM UTF-8 que genera
-// exportar() abre perfectamente en Excel con doble clic y no agrega una
-// dependencia nueva al proyecto. Si más adelante se quiere un .xlsx real
-// (con formato, múltiples hojas, etc.), se puede instalar
-// phpoffice/phpspreadsheet desde una máquina con acceso normal a Packagist
-// y adaptar exportar() para usarlo.
+// Coordinador y Consulta, según PermissionSeeder). El archivo .xlsx lo arma
+// SimpleXlsxWriter (ver app/Support/SimpleXlsxWriter.php) a mano con
+// ext-zip, sin depender de PhpSpreadsheet/Maatwebsite: este entorno de
+// desarrollo no tiene acceso a Packagist para instalar esa librería (ni sus
+// varias dependencias transitivas). El resultado es un .xlsx real y válido
+// — se probó abriéndolo con Excel/openpyxl —, solo que sin las funciones
+// avanzadas de una librería completa (múltiples hojas, fórmulas, gráficos).
 class ReporteController extends Controller
 {
     /**
@@ -91,7 +91,7 @@ class ReporteController extends Controller
         ]);
     }
 
-    public function exportar(Request $request): StreamedResponse
+    public function exportar(Request $request): BinaryFileResponse
     {
         $filas = $this->consultaFiltrada($request)->orderByDesc('fecha_ingreso')->get();
 
@@ -104,42 +104,42 @@ class ReporteController extends Controller
             'detalle' => ['filtros' => $request->only(['desde', 'hasta', 'estado', 'dependencia_id']), 'total_filas' => $filas->count()],
         ]);
 
-        $nombreArchivo = 'reporte-solicitudes-'.now()->format('Y-m-d_His').'.csv';
+        $encabezados = [
+            'Código NS', 'Contraseña', 'Fecha ingreso', 'Interesado', 'Correo',
+            'Medio de recepción', 'Asunto', 'Estado', 'Dependencia',
+            'Fecha vencimiento', 'Días restantes', 'Fecha finalización',
+        ];
 
-        return response()->streamDownload(function () use ($filas) {
-            $out = fopen('php://output', 'w');
-            // BOM UTF-8: sin esto, Excel en Windows interpreta el archivo
-            // como Latin-1 y las tildes/eñes salen corruptas.
-            fwrite($out, "\xEF\xBB\xBF");
+        $filasParaExcel = $filas->map(function (Solicitud $s) {
+            $dias = $s->diasHabilesRestantes();
 
-            fputcsv($out, [
-                'Código NS', 'Contraseña', 'Fecha ingreso', 'Interesado', 'Correo',
-                'Medio de recepción', 'Asunto', 'Estado', 'Dependencia',
-                'Fecha vencimiento', 'Días restantes', 'Fecha finalización',
-            ]);
+            return [
+                $s->codigo_ns,
+                $s->contrasena ?? '',
+                optional($s->fecha_ingreso)->format('d/m/Y'),
+                $s->solicitante?->nombre ?? '',
+                $s->solicitante?->correo ?? '',
+                $this->etiquetaMedio($s->medio_recepcion),
+                $s->asunto,
+                $s->estado?->etiqueta ?? '',
+                $s->dependencia?->nombre ?? '',
+                optional($s->fecha_vencimiento)->format('d/m/Y'),
+                $dias, // int|null: SimpleXlsxWriter lo escribe como celda numérica.
+                optional($s->fecha_finalizacion)->format('d/m/Y'),
+            ];
+        });
 
-            foreach ($filas as $s) {
-                $dias = $s->diasHabilesRestantes();
+        $nombreArchivo = 'reporte-solicitudes-'.now()->format('Y-m-d_His').'.xlsx';
+        $directorioTmp = storage_path('app/private/tmp');
+        if (! is_dir($directorioTmp)) {
+            mkdir($directorioTmp, 0755, true);
+        }
+        $rutaTmp = $directorioTmp.'/'.$nombreArchivo;
 
-                fputcsv($out, [
-                    $s->codigo_ns,
-                    $s->contrasena ?? '',
-                    optional($s->fecha_ingreso)->format('d/m/Y'),
-                    $s->solicitante?->nombre ?? '',
-                    $s->solicitante?->correo ?? '',
-                    $this->etiquetaMedio($s->medio_recepcion),
-                    $s->asunto,
-                    $s->estado?->etiqueta ?? '',
-                    $s->dependencia?->nombre ?? '',
-                    optional($s->fecha_vencimiento)->format('d/m/Y'),
-                    $dias === null ? '' : $dias,
-                    optional($s->fecha_finalizacion)->format('d/m/Y'),
-                ]);
-            }
+        SimpleXlsxWriter::generar($rutaTmp, $encabezados, $filasParaExcel->all());
 
-            fclose($out);
-        }, $nombreArchivo, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return response()->download($rutaTmp, $nombreArchivo, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
     }
 }

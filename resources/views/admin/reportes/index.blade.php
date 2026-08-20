@@ -41,7 +41,7 @@
     @endif
     <a href="{{ route('admin.reportes.exportar', $filtros) }}"
        style="margin-left:auto; padding:8px 16px; border-radius:8px; background:#0ca30c; color:#fff; font-size:13.5px; text-decoration:none; font-weight:600;">
-      ⬇ Exportar a Excel (CSV)
+      ⬇ Exportar a Excel (.xlsx)
     </a>
   </form>
 

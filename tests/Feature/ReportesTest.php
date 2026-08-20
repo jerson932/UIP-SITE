@@ -14,7 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
-// Reportes y exportación a CSV (permiso 'reportes.exportar').
+// Reportes y exportación a Excel (.xlsx) (permiso 'reportes.exportar').
 class ReportesTest extends TestCase
 {
     use RefreshDatabase;
@@ -100,7 +100,7 @@ class ReportesTest extends TestCase
         $response->assertViewHas('total', 1);
     }
 
-    public function test_exportar_genera_csv_con_las_filas_esperadas_y_respeta_filtros(): void
+    public function test_exportar_genera_xlsx_valido_con_las_filas_esperadas_y_respeta_filtros(): void
     {
         $admin = $this->adminConPermisos(['reportes.exportar']);
         $estado = SolicitudEstado::create(['clave' => 'en_seguimiento', 'etiqueta' => 'En seguimiento', 'color' => '#1baf7a', 'orden' => 1]);
@@ -112,11 +112,19 @@ class ReportesTest extends TestCase
         $response = $this->actingAs($admin)->get('/admin/reportes/exportar?estado=en_seguimiento');
 
         $response->assertStatus(200);
-        $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
-        $contenido = $response->streamedContent();
-        $this->assertStringContainsString('NS_INCLUIDA-2026', $contenido);
-        $this->assertStringNotContainsString('NS_EXCLUIDA-2026', $contenido);
-        $this->assertStringContainsString('Código NS', $contenido);
+        $response->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        // El .xlsx es un ZIP: se valida abriéndolo de verdad y leyendo la
+        // hoja, no solo comparando texto plano (a diferencia de un CSV).
+        $zip = new \ZipArchive();
+        $zip->open($response->getFile()->getPathname());
+        $xmlHoja = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+
+        $this->assertNotFalse($xmlHoja, 'El .xlsx generado no contiene xl/worksheets/sheet1.xml.');
+        $this->assertStringContainsString('NS_INCLUIDA-2026', $xmlHoja);
+        $this->assertStringNotContainsString('NS_EXCLUIDA-2026', $xmlHoja);
+        $this->assertStringContainsString('Código NS', $xmlHoja);
     }
 
     public function test_exportar_registra_auditoria_en_logs(): void
@@ -125,8 +133,7 @@ class ReportesTest extends TestCase
         $estado = SolicitudEstado::create(['clave' => 'en_seguimiento', 'etiqueta' => 'En seguimiento', 'color' => '#1baf7a', 'orden' => 1]);
         $this->crearSolicitud(['estado_id' => $estado->id]);
 
-        $response = $this->actingAs($admin)->get('/admin/reportes/exportar');
-        $response->streamedContent();
+        $this->actingAs($admin)->get('/admin/reportes/exportar');
 
         $log = Log::where('accion', 'reporte.exportado')->first();
         $this->assertNotNull($log);
