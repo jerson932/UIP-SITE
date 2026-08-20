@@ -170,4 +170,27 @@ class SolicitudActionController extends Controller
 
         return back()->with('status', 'Expediente finalizado. '.$this->notificaciones->describirResultado($correo));
     }
+
+    public function ajustarVencimiento(Request $request, Solicitud $solicitud): RedirectResponse
+    {
+        if ($solicitud->estado?->clave === 'pendiente_validacion') {
+            return back()->with('error', 'Debe aceptarse la solicitud antes de fijar una fecha de vencimiento.');
+        }
+
+        $data = $request->validate([
+            'fecha_vencimiento' => ['required', 'date'],
+            'motivo' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $anterior = $solicitud->fecha_vencimiento?->toDateString() ?? 'sin fecha asignada';
+
+        $solicitud->update(['fecha_vencimiento' => $data['fecha_vencimiento']]);
+
+        $this->historial(
+            $solicitud,
+            "Fecha de vencimiento ajustada manualmente de {$anterior} a {$data['fecha_vencimiento']}. Motivo: {$data['motivo']}"
+        );
+
+        return back()->with('status', 'Fecha de vencimiento actualizada.');
+    }
 }

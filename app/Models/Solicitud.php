@@ -164,6 +164,37 @@ class Solicitud extends Model
     }
 
     /**
+     * Fecha límite hasta la cual el interesado puede seguir consultando y
+     * descargando documentos en el portal público (Fase 12) DESPUÉS de que
+     * el expediente fue finalizado: 10 días hábiles después de
+     * fecha_finalizacion. Esto es un plazo distinto e independiente de
+     * fecha_vencimiento (que es el plazo del ADMINISTRADOR para resolver,
+     * ajustable manualmente por prórroga o recurso de revisión) — mientras
+     * el expediente no esté finalizado no hay límite, el ciudadano puede
+     * consultar en cualquier momento.
+     */
+    public function fechaLimiteAccesoPortal(): ?Carbon
+    {
+        if (! $this->fecha_finalizacion) {
+            return null;
+        }
+
+        return Feriado::sumarDiasHabiles(Carbon::parse($this->fecha_finalizacion)->startOfDay(), 10);
+    }
+
+    /**
+     * ¿Ya venció la ventana de 10 días hábiles para consultar el portal
+     * después de finalizado el expediente? Siempre false mientras el
+     * expediente siga activo (fecha_finalizacion null).
+     */
+    public function accesoPortalVencido(): bool
+    {
+        $limite = $this->fechaLimiteAccesoPortal();
+
+        return $limite !== null && Carbon::today()->gt($limite);
+    }
+
+    /**
      * ¿Ya se puede asignar contraseña? Solo después de que la solicitud
      * fue aceptada (validada) — nunca en pendiente_validacion.
      */

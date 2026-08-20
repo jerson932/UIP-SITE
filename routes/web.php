@@ -72,6 +72,10 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
         ->middleware('permission:solicitudes.finalizar')
         ->name('solicitudes.finalizar');
 
+    Route::post('/solicitudes/{solicitud}/vencimiento', [SolicitudActionController::class, 'ajustarVencimiento'])
+        ->middleware('permission:solicitudes.ajustar_vencimiento')
+        ->name('solicitudes.vencimiento');
+
     // --- Actuaciones (Fase 9: prórroga, aclaración, ampliación, recurso) ---
     Route::post('/solicitudes/{solicitud}/prorroga', [ActuacionController::class, 'crearProrroga'])
         ->middleware('permission:actuaciones.prorroga')

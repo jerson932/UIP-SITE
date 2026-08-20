@@ -31,7 +31,7 @@ class SolicitudFlowTest extends TestCase
 
         foreach ([
             'solicitudes.ver', 'solicitudes.validar', 'solicitudes.asignar_contrasena',
-            'solicitudes.asignar_dependencia', 'solicitudes.finalizar',
+            'solicitudes.asignar_dependencia', 'solicitudes.finalizar', 'solicitudes.ajustar_vencimiento',
         ] as $clave) {
             Permission::create(['clave' => $clave, 'nombre' => $clave]);
         }
@@ -198,6 +198,61 @@ class SolicitudFlowTest extends TestCase
         $this->assertEquals('finalizada', $solicitud->estado->clave);
         $this->assertNotNull($solicitud->fecha_finalizacion);
         $this->assertEquals(3, $solicitud->solicitud_historial()->count());
+    }
+
+    public function test_ajustar_vencimiento_requiere_permiso(): void
+    {
+        $this->seedCatalog();
+        $user = $this->adminConPermisos(['solicitudes.ver', 'solicitudes.validar']);
+        $solicitud = $this->solicitudPendiente();
+        $this->actingAs($user)->post("/admin/solicitudes/{$solicitud->id}/aceptar");
+
+        $response = $this->actingAs($user)->post("/admin/solicitudes/{$solicitud->id}/vencimiento", [
+            'fecha_vencimiento' => now()->addDays(15)->toDateString(),
+            'motivo' => 'Recurso de revisión aprobado.',
+        ]);
+
+        $response->assertStatus(403);
+    }
+
+    public function test_ajustar_vencimiento_actualiza_la_fecha_y_registra_historial(): void
+    {
+        $this->seedCatalog();
+        $user = $this->adminConPermisos([
+            'solicitudes.ver', 'solicitudes.validar', 'solicitudes.asignar_contrasena', 'solicitudes.ajustar_vencimiento',
+        ]);
+        $solicitud = $this->solicitudPendiente();
+        $this->actingAs($user)->post("/admin/solicitudes/{$solicitud->id}/aceptar");
+        $this->actingAs($user)->post("/admin/solicitudes/{$solicitud->id}/contrasena", ['contrasena' => '99-2026']);
+
+        $nuevaFecha = now()->addDays(20)->toDateString();
+        $response = $this->actingAs($user)->post("/admin/solicitudes/{$solicitud->id}/vencimiento", [
+            'fecha_vencimiento' => $nuevaFecha,
+            'motivo' => 'Recurso de revisión aprobado: +5 días hábiles adicionales.',
+        ]);
+
+        $response->assertRedirect();
+        $solicitud->refresh();
+        $this->assertEquals($nuevaFecha, $solicitud->fecha_vencimiento->toDateString());
+        $ultimo = $solicitud->solicitud_historial()->latest('id')->first();
+        $this->assertStringContainsString('ajustada manualmente', $ultimo->descripcion);
+        $this->assertStringContainsString('Recurso de revisión aprobado', $ultimo->descripcion);
+    }
+
+    public function test_ajustar_vencimiento_bloqueado_en_pendiente_validacion(): void
+    {
+        $this->seedCatalog();
+        $user = $this->adminConPermisos(['solicitudes.ver', 'solicitudes.ajustar_vencimiento']);
+        $solicitud = $this->solicitudPendiente();
+
+        $response = $this->actingAs($user)->post("/admin/solicitudes/{$solicitud->id}/vencimiento", [
+            'fecha_vencimiento' => now()->addDays(10)->toDateString(),
+            'motivo' => 'Intento antes de validar.',
+        ]);
+
+        $response->assertRedirect();
+        $solicitud->refresh();
+        $this->assertNull($solicitud->fecha_vencimiento);
     }
 
     public function test_detalle_muestra_datos_del_solicitante(): void

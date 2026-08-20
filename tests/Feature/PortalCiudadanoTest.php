@@ -161,6 +161,53 @@ class PortalCiudadanoTest extends TestCase
         $response->assertStatus(403);
     }
 
+    public function test_consulta_de_expediente_finalizado_dentro_del_plazo_funciona_normalmente(): void
+    {
+        // Finalizado hoy: quedan 10 días hábiles completos por delante,
+        // así que el portal debe seguir mostrando el expediente y el
+        // banner con la fecha límite de acceso.
+        $this->solicitud(['fecha_finalizacion' => now()->toDateString()]);
+
+        $response = $this->post('/seguimiento', ['codigo_acceso' => 'A8K4-XP29']);
+
+        $response->assertStatus(200);
+        $response->assertSee('NS_99-2026');
+        $response->assertSee('Este expediente fue finalizado');
+    }
+
+    public function test_consulta_de_expediente_finalizado_hace_mas_de_10_dias_habiles_esta_vencida(): void
+    {
+        // 30 días calendario atrás son, en cualquier calendario, más de 10
+        // días hábiles — cubre de sobra fines de semana y feriados.
+        $this->solicitud(['fecha_finalizacion' => now()->subDays(30)->toDateString()]);
+
+        $response = $this->post('/seguimiento', ['codigo_acceso' => 'A8K4-XP29']);
+
+        $response->assertSessionHasErrors('codigo_acceso');
+        $response->assertDontSee('NS_99-2026');
+        $errors = session('errors');
+        $this->assertStringContainsString('plazo para consultar este expediente en línea ya venció', $errors->first('codigo_acceso'));
+    }
+
+    public function test_descarga_de_documento_vencida_la_ventana_del_portal_es_rechazada(): void
+    {
+        Storage::fake('local');
+        Storage::disk('local')->put('documentos/y.pdf', 'contenido de prueba');
+        $solicitud = $this->solicitud(['fecha_finalizacion' => now()->subDays(30)->toDateString()]);
+        $documento = Documento::create([
+            'solicitud_id' => $solicitud->id,
+            'nombre' => 'Resolución.pdf',
+            'ruta_archivo' => 'documentos/y.pdf',
+            'tipo' => 'pdf',
+            'visible_ciudadano' => true,
+        ]);
+
+        $url = URL::temporarySignedRoute('ciudadano.documentos.descargar', now()->addMinutes(30), ['documento' => $documento->id]);
+
+        $response = $this->get($url);
+        $response->assertStatus(403);
+    }
+
     public function test_descarga_de_documento_no_visible_da_404_aunque_la_firma_sea_valida(): void
     {
         Storage::fake('local');

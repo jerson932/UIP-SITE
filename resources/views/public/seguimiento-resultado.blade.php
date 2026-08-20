@@ -54,6 +54,12 @@
 
   <div class="card">
     <h4>Documentos disponibles</h4>
+    @if ($solicitud->fecha_finalizacion)
+      <p style="font-size:12px; color:#a86a06; background:#fff8e6; border:1px solid #f0dfa8; border-radius:8px; padding:8px 10px; margin:0 0 12px;">
+        Este expediente fue finalizado. Puedes consultarlo y descargar tus documentos hasta el
+        <strong>{{ $solicitud->fechaLimiteAccesoPortal()?->format('d/m/Y') }}</strong> (10 días hábiles después de la finalización).
+      </p>
+    @endif
     @forelse ($documentos as $doc)
       <div class="doc-item">
         <div>{{ $doc->nombre }}</div>

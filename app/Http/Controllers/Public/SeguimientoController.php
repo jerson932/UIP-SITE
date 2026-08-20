@@ -62,6 +62,18 @@ class SeguimientoController extends Controller
 
         RateLimiter::clear($throttleKey);
 
+        // El código de acceso es válido, pero si el expediente ya está
+        // finalizado y pasaron más de 10 días hábiles desde la
+        // finalización, el portal deja de mostrar el expediente — el
+        // interesado ya recibió la resolución por correo (ver
+        // NotificacionService) y este es solo el plazo de consulta en
+        // línea, no un segundo plazo legal.
+        if ($solicitud->accesoPortalVencido()) {
+            throw ValidationException::withMessages([
+                'codigo_acceso' => 'El plazo para consultar este expediente en línea ya venció (10 días hábiles después de finalizado). Revisa el correo que te enviamos con la resolución, o contacta a la UIP si necesitas el documento nuevamente.',
+            ]);
+        }
+
         $solicitud->load(['estado', 'solicitud_historial' => function ($q) {
             $q->orderBy('created_at');
         }]);
@@ -96,6 +108,10 @@ class SeguimientoController extends Controller
         // vigente de antes de que se revirtiera esa publicación.
         if (! $documento->visible_ciudadano) {
             abort(404);
+        }
+
+        if ($documento->solicitud && $documento->solicitud->accesoPortalVencido()) {
+            abort(403, 'El plazo para descargar documentos de este expediente ya venció.');
         }
 
         if (! Storage::disk('local')->exists($documento->ruta_archivo)) {

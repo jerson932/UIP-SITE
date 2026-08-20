@@ -164,7 +164,26 @@
             @if ($dias === null) — @elseif ($dias < 0) {{ abs($dias) }} días vencida @else {{ $dias }} días hábiles @endif
           </strong>
         </div>
-        <p style="font-size:12px; color:#898781; margin:10px 0 0;">Plazo legal: 10 días hábiles desde la contraseña, con posibilidad de prórroga notificada hasta el 8vo día.</p>
+        <p style="font-size:12px; color:#898781; margin:10px 0 0;">Plazo legal: 10 días hábiles desde la contraseña, con posibilidad de prórroga notificada hasta el 8vo día, +5 días hábiles si hay recurso de revisión y +5 más si es aprobado.</p>
+
+        @if ($solicitud->fecha_finalizacion)
+          <p style="font-size:12px; color:#a86a06; background:#fff8e6; border:1px solid #f0dfa8; border-radius:8px; padding:8px 10px; margin:10px 0 0;">
+            Finalizado el {{ \Illuminate\Support\Carbon::parse($solicitud->fecha_finalizacion)->format('d/m/Y') }}. El portal del ciudadano deja de mostrar este expediente a partir del
+            <strong>{{ $solicitud->fechaLimiteAccesoPortal()?->format('d/m/Y') }}</strong> (10 días hábiles después).
+          </p>
+        @endif
+
+        @if (auth()->user()->hasPermission('solicitudes.ajustar_vencimiento') && $estadoClave !== 'pendiente_validacion')
+          <form method="POST" action="{{ route('admin.solicitudes.vencimiento', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid #f0efec;">
+            @csrf
+            <label style="font-size:12px; color:#898781;">Ajustar fecha de vencimiento manualmente (ej. tras un recurso de revisión aprobado)</label>
+            <input type="date" name="fecha_vencimiento" value="{{ $solicitud->fecha_vencimiento?->toDateString() }}" required
+                   style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+            <textarea name="motivo" rows="2" required placeholder="Motivo del ajuste…"
+                      style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px; font-family:inherit;"></textarea>
+            <button type="submit" style="align-self:flex-start; background:#52514e; color:#fff; border:0; border-radius:7px; padding:7px 12px; font-size:12.5px; font-weight:600; cursor:pointer;">Ajustar fecha</button>
+          </form>
+        @endif
       </div>
     </div>
 
