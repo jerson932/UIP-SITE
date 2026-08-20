@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ActuacionController;
+use App\Http\Controllers\Admin\ConfiguracionController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DocumentoController;
 use App\Http\Controllers\Admin\ReporteController;
@@ -117,5 +118,14 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
     Route::middleware('permission:reportes.exportar')->prefix('reportes')->name('reportes.')->group(function () {
         Route::get('/', [ReporteController::class, 'index'])->name('index');
         Route::get('/exportar', [ReporteController::class, 'exportar'])->name('exportar');
+    });
+
+    // --- Configuración general: plantillas de correo y feriados (permiso 'configuracion.gestionar') ---
+    Route::middleware('permission:configuracion.gestionar')->prefix('configuracion')->name('configuracion.')->group(function () {
+        Route::get('/', [ConfiguracionController::class, 'index'])->name('index');
+        Route::get('/plantillas/{plantilla}/editar', [ConfiguracionController::class, 'editarPlantilla'])->name('plantillas.editar');
+        Route::post('/plantillas/{plantilla}', [ConfiguracionController::class, 'actualizarPlantilla'])->name('plantillas.actualizar');
+        Route::post('/feriados', [ConfiguracionController::class, 'guardarFeriado'])->name('feriados.guardar');
+        Route::post('/feriados/{feriado}/eliminar', [ConfiguracionController::class, 'eliminarFeriado'])->name('feriados.eliminar');
     });
 });
