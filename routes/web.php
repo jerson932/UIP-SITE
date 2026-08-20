@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\SolicitudActionController;
 use App\Http\Controllers\Admin\SolicitudController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Public\SeguimientoController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +27,18 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [LoginController::class, 'destroy'])
     ->middleware('auth')
     ->name('logout');
+
+// --- Portal del ciudadano (Fase 12): consulta pública de estado, sin
+// iniciar sesión de administrador. No usa el middleware "guest" (ese es
+// específico del guard de administradores) ni "auth" — es anónimo. ---
+Route::prefix('seguimiento')->name('ciudadano.')->group(function () {
+    Route::get('/', [SeguimientoController::class, 'form'])->name('seguimiento.form');
+    Route::post('/', [SeguimientoController::class, 'consultar'])->name('seguimiento.consultar');
+
+    Route::get('/documentos/{documento}/descargar', [SeguimientoController::class, 'descargarDocumento'])
+        ->middleware('signed')
+        ->name('documentos.descargar');
+});
 
 // --- Panel administrativo (protegido: sesión + cuenta activa) ---
 Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(function () {
