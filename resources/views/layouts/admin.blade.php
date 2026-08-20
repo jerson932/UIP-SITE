@@ -37,6 +37,9 @@
       @if ($user->hasPermission('usuarios.gestionar'))
         <a href="{{ route('admin.usuarios.index') }}">Usuarios</a>
       @endif
+      @if ($user->hasPermission('reportes.exportar'))
+        <a href="{{ route('admin.reportes.index') }}">Reportes</a>
+      @endif
     @endif
   </nav>
   <div class="user">

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ActuacionController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DocumentoController;
+use App\Http\Controllers\Admin\ReporteController;
 use App\Http\Controllers\Admin\SolicitudActionController;
 use App\Http\Controllers\Admin\SolicitudController;
 use App\Http\Controllers\Admin\UsuarioController;
@@ -111,4 +112,10 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
     Route::post('/solicitudes/{solicitud}/documentos/{documento}/publicar', [DocumentoController::class, 'publicar'])
         ->middleware('permission:documentos.publicar')
         ->name('solicitudes.documentos.publicar');
+
+    // --- Reportes y exportación (permiso 'reportes.exportar') ---
+    Route::middleware('permission:reportes.exportar')->prefix('reportes')->name('reportes.')->group(function () {
+        Route::get('/', [ReporteController::class, 'index'])->name('index');
+        Route::get('/exportar', [ReporteController::class, 'exportar'])->name('exportar');
+    });
 });
