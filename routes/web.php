@@ -44,10 +44,16 @@ Route::prefix('seguimiento')->name('ciudadano.')->group(function () {
 Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Ejemplo de ruta protegida ademas por permiso granular.
-    Route::get('/usuarios', [UsuarioController::class, 'index'])
-        ->middleware('permission:usuarios.gestionar')
-        ->name('usuarios.index');
+    // Gestión de usuarios: solo roles con el permiso 'usuarios.gestionar'
+    // (Administrador y Coordinador, según PermissionSeeder).
+    Route::middleware('permission:usuarios.gestionar')->prefix('usuarios')->name('usuarios.')->group(function () {
+        Route::get('/', [UsuarioController::class, 'index'])->name('index');
+        Route::get('/crear', [UsuarioController::class, 'create'])->name('create');
+        Route::post('/', [UsuarioController::class, 'store'])->name('store');
+        Route::get('/{usuario}/editar', [UsuarioController::class, 'edit'])->name('edit');
+        Route::post('/{usuario}', [UsuarioController::class, 'update'])->name('update');
+        Route::post('/{usuario}/estado', [UsuarioController::class, 'toggleEstado'])->name('estado');
+    });
 
     // --- Solicitudes (Fase 6: recepción y validación administrativa) ---
     Route::middleware('permission:solicitudes.ver')->group(function () {
