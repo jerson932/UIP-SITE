@@ -17,6 +17,7 @@ class PermissionSeeder extends Seeder
     {
         $permisos = [
             'solicitudes.ver' => 'Ver listado y detalle de solicitudes',
+            'solicitudes.crear' => 'Registrar una solicitud nueva (recepcion fisica, correo o electronica)',
             'solicitudes.validar' => 'Aceptar/rechazar una solicitud (es informacion publica / es competencia)',
             'solicitudes.asignar_contrasena' => 'Asignar la Contraseña No. una vez aceptada la solicitud',
             'solicitudes.asignar_dependencia' => 'Asignar dependencia/enlace responsable',
@@ -41,9 +42,9 @@ class PermissionSeeder extends Seeder
 
         $porRol = [
             'Administrador' => array_keys($permisos),
-            'Recepción UIP' => ['solicitudes.ver', 'solicitudes.validar', 'documentos.subir', 'correos.ver'],
+            'Recepción UIP' => ['solicitudes.ver', 'solicitudes.crear', 'solicitudes.validar', 'documentos.subir', 'correos.ver'],
             'Usuario UIP' => [
-                'solicitudes.ver', 'solicitudes.validar', 'solicitudes.asignar_contrasena',
+                'solicitudes.ver', 'solicitudes.crear', 'solicitudes.validar', 'solicitudes.asignar_contrasena',
                 'solicitudes.finalizar', 'solicitudes.ajustar_vencimiento', 'actuaciones.prorroga',
                 'actuaciones.aclaracion', 'actuaciones.ampliacion', 'actuaciones.recurso',
                 'documentos.subir', 'documentos.publicar', 'correos.enviar', 'correos.ver',

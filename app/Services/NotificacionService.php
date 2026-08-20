@@ -44,6 +44,8 @@ class NotificacionService
             'nombre' => $solicitud->solicitante->nombre,
             'contrasena' => $solicitud->contrasena,
             'asunto' => $solicitud->asunto,
+            'codigo_ns' => $solicitud->codigo_ns,
+            'codigo_acceso' => $solicitud->codigo_acceso,
         ], $variables);
 
         $asuntoCorreo = $this->reemplazarPlaceholders($plantilla->asunto_template, $placeholders);

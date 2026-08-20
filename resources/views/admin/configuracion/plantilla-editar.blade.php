@@ -17,7 +17,8 @@
 
     <div style="background:#f4f7fb; border:1px solid #dbe6f2; border-radius:8px; padding:10px 14px; font-size:12.5px; margin-bottom:16px;">
       Placeholders disponibles (no todas las plantillas usan todos): <code>@{{nombre}}</code>,
-      <code>@{{contrasena}}</code>, <code>@{{asunto}}</code>, <code>@{{correlativo_recurso}}</code>.
+      <code>@{{contrasena}}</code>, <code>@{{asunto}}</code>, <code>@{{correlativo_recurso}}</code>,
+      <code>@{{codigo_ns}}</code>, <code>@{{codigo_acceso}}</code>.
       Se sustituyen automáticamente al enviar el correo real.
     </div>
 

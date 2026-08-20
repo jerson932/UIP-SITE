@@ -8,7 +8,7 @@ use Illuminate\Database\Seeder;
 // Plantillas con el tono/formato REAL de la UIP-MINGOB, tal como se
 // verificaron contra los correos reales que el usuario compartió
 // (bandeja de Gmail de la UIP) y ya quedaron validadas en el prototipo HTML.
-// Placeholders: {{nombre}}, {{contrasena}}, {{correlativo_recurso}}, {{asunto}}
+// Placeholders: {{nombre}}, {{contrasena}}, {{correlativo_recurso}}, {{asunto}}, {{codigo_ns}}, {{codigo_acceso}}
 class PlantillaCorreoSeeder extends Seeder
 {
     private const FOOTER = "Unidad de Información Pública\n6a. Avenida 13-71 Zona 1, Primer Nivel\nPBX: 2413-8888 Extensión: 1621 / 1541\nCorreo electrónico: uip@mingob.gob.gt";
@@ -16,6 +16,12 @@ class PlantillaCorreoSeeder extends Seeder
     public function run(): void
     {
         $plantillas = [
+            [
+                'clave' => 'solicitud_registrada',
+                'evento' => 'Acuse de recibo inmediato al registrar la solicitud (antes de validar)',
+                'asunto_template' => 'Acuse de recibo - Código {{codigo_ns}}',
+                'cuerpo_template' => "Estimado (a) {{nombre}}:\n\nHemos registrado su solicitud de información con el código {{codigo_ns}}. Puede consultar el estado de su trámite y descargar los documentos que se publiquen, en cualquier momento, usando el siguiente código de acceso en nuestro portal de seguimiento:\n\nCÓDIGO DE ACCESO: {{codigo_acceso}}\n\nGuarde este código; lo necesitará para dar seguimiento a su solicitud. En los próximos días esta Unidad revisará su solicitud y le notificará la Contraseña No. formal correspondiente.\n\nSin otro particular, nos suscribimos de usted,\n\n" . self::FOOTER,
+            ],
             [
                 'clave' => 'solicitud_recibida',
                 'evento' => 'Nueva solicitud / notificación de recepción y Contraseña asignada',

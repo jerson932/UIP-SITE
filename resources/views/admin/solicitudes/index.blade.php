@@ -3,11 +3,21 @@
 @section('title', 'Solicitudes')
 
 @section('content')
+  @if (session('status'))
+    <div style="background:#e9f7ea; border:1px solid #b9e3bb; color:#256428; border-radius:8px; padding:10px 14px; font-size:13.5px; margin-bottom:14px;">{{ session('status') }}</div>
+  @endif
+
   <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:16px; gap:16px; flex-wrap:wrap;">
     <div>
       <h2 style="margin:0 0 4px;">Solicitudes</h2>
       <p style="margin:0; color:#52514e; font-size:13.5px;">Listado general — filtra por estado o busca por interesado, correo, código o contraseña</p>
     </div>
+    @if (auth()->user()->hasPermission('solicitudes.crear'))
+      <a href="{{ route('admin.solicitudes.create') }}"
+         style="background:#2a78d6; color:#fff; text-decoration:none; border-radius:7px; padding:9px 16px; font-size:13.5px; font-weight:600; white-space:nowrap;">
+        + Registrar solicitud
+      </a>
+    @endif
   </div>
 
   <form method="GET" action="{{ route('admin.solicitudes.index') }}" class="card" style="padding:14px 18px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">

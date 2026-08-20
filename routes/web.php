@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\SolicitudController;
 use App\Http\Controllers\Admin\UsuarioController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Public\SeguimientoController;
+use App\Http\Controllers\Public\SolicitudPublicaController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -42,6 +43,14 @@ Route::prefix('seguimiento')->name('ciudadano.')->group(function () {
         ->name('documentos.descargar');
 });
 
+// --- Formulario público de presentación de solicitudes: el otro punto de
+// entrada para crear un expediente (el interno es admin.solicitudes.create,
+// más abajo). También anónimo, sin middleware "guest"/"auth". ---
+Route::prefix('solicitudes')->name('solicitudes.')->group(function () {
+    Route::get('/nueva', [SolicitudPublicaController::class, 'form'])->name('nueva.form');
+    Route::post('/nueva', [SolicitudPublicaController::class, 'store'])->name('nueva.store');
+});
+
 // --- Panel administrativo (protegido: sesión + cuenta activa) ---
 Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -58,6 +67,14 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
     });
 
     // --- Solicitudes (Fase 6: recepción y validación administrativa) ---
+    // OJO con el orden: "/solicitudes/nueva" debe registrarse ANTES que
+    // "/solicitudes/{solicitud}" — si no, Laravel intenta enlazar "nueva"
+    // como si fuera el {solicitud} del modelo y nunca llega a create().
+    Route::middleware('permission:solicitudes.crear')->group(function () {
+        Route::get('/solicitudes/nueva', [SolicitudController::class, 'create'])->name('solicitudes.create');
+        Route::post('/solicitudes', [SolicitudController::class, 'store'])->name('solicitudes.store');
+    });
+
     Route::middleware('permission:solicitudes.ver')->group(function () {
         Route::get('/solicitudes', [SolicitudController::class, 'index'])->name('solicitudes.index');
         Route::get('/solicitudes/{solicitud}', [SolicitudController::class, 'show'])->name('solicitudes.show');
