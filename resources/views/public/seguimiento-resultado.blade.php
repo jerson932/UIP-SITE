@@ -124,13 +124,15 @@
       <p style="font-size:13px; color:var(--ink-2); margin:0;">Aún no hay movimientos registrados.</p>
     @endforelse
 
-    @if ($solicitud->estado?->clave !== 'pendiente_validacion')
+    @if ($solicitud->estado?->es_final)
       <details class="autoservicio">
         <summary>¿No estás de acuerdo con la respuesta? Presenta un recurso de revisión</summary>
-        <form method="POST" action="{{ route('ciudadano.recurso.solicitar') }}">
+        <form method="POST" action="{{ route('ciudadano.recurso.solicitar') }}" enctype="multipart/form-data">
           @csrf
           <input type="hidden" name="codigo_acceso" value="{{ $solicitud->codigo_acceso }}">
           <textarea name="motivo" rows="4" required minlength="10" placeholder="Explica el motivo de tu recurso de revisión..."></textarea>
+          <label style="font-size:12.5px; display:block; margin-top:6px;">Adjuntar documento de soporte (opcional)</label>
+          <input type="file" name="archivo" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png" style="font-size:13px; margin-top:4px;">
           <button type="submit">Presentar recurso de revisión</button>
         </form>
       </details>
@@ -138,10 +140,12 @@
 
     <details class="autoservicio">
       <summary>¿Necesitas pedir una ampliación de la información?</summary>
-      <form method="POST" action="{{ route('ciudadano.ampliacion.solicitar') }}">
+      <form method="POST" action="{{ route('ciudadano.ampliacion.solicitar') }}" enctype="multipart/form-data">
         @csrf
         <input type="hidden" name="codigo_acceso" value="{{ $solicitud->codigo_acceso }}">
         <textarea name="descripcion" rows="4" required minlength="10" placeholder="Describe la ampliación que necesitas..."></textarea>
+        <label style="font-size:12.5px; display:block; margin-top:6px;">Adjuntar documento de soporte (opcional)</label>
+        <input type="file" name="archivo" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png" style="font-size:13px; margin-top:4px;">
         <button type="submit">Solicitar ampliación</button>
       </form>
     </details>

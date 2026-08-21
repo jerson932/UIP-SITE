@@ -351,6 +351,9 @@
             @if ($r->correlativo)
               <div>Recurso de Revisión No. <strong>{{ $r->correlativo }}</strong> — presentado {{ \Illuminate\Support\Carbon::parse($r->fecha_presentacion)->format('d/m/Y') }}</div>
               <div style="color:#898781; margin-top:4px;">{{ $r->motivo }}</div>
+              @if ($r->documento)
+                <div style="margin-top:4px; font-size:12.5px;">Documento adjunto: <a href="{{ route('admin.solicitudes.documentos.descargar', [$solicitud, $r->documento]) }}" style="color:#2a78d6;">{{ $r->documento->nombre }}</a></div>
+              @endif
               <div style="margin-top:4px;">
                 Estado:
                 @if ($r->estado === 'resuelto')
@@ -378,6 +381,9 @@
                 Presentado por el interesado desde su portal de seguimiento el {{ \Illuminate\Support\Carbon::parse($r->fecha_presentacion)->format('d/m/Y') }} — todavía sin número de correlativo.
               </div>
               <div style="color:#898781;">{{ $r->motivo }}</div>
+              @if ($r->documento)
+                <div style="margin-top:4px; font-size:12.5px;">Documento adjunto: <a href="{{ route('admin.solicitudes.documentos.descargar', [$solicitud, $r->documento]) }}" style="color:#2a78d6;">{{ $r->documento->nombre }}</a></div>
+              @endif
               @if (auth()->user()->hasPermission('actuaciones.recurso'))
                 <form method="POST" action="{{ route('admin.solicitudes.recurso.correlativo', [$solicitud, $r]) }}" style="display:flex; gap:8px; align-items:flex-end; margin-top:10px; flex-wrap:wrap;">
                   @csrf
@@ -455,6 +461,9 @@
             @endif
             <div>Solicitada el {{ \Illuminate\Support\Carbon::parse($a->fecha_solicitud)->format('d/m/Y') }}</div>
             <div style="color:#898781; margin-top:4px;">{{ $a->descripcion }}</div>
+            @if ($a->documento)
+              <div style="margin-top:4px; font-size:12.5px;">Documento adjunto: <a href="{{ route('admin.solicitudes.documentos.descargar', [$solicitud, $a->documento]) }}" style="color:#2a78d6;">{{ $a->documento->nombre }}</a></div>
+            @endif
           </div>
         @empty
           <p style="font-size:13px; color:#898781;">No hay ampliaciones en este expediente.</p>
@@ -479,15 +488,30 @@
           <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0efec; padding:9px 0; font-size:13px; gap:10px;">
             <div>
               <div>{{ $doc->nombre }}@if ($doc->no_oficio) (No. {{ $doc->no_oficio }}) @elseif ($doc->no_providencia) (No. {{ $doc->no_providencia }}) @endif</div>
-              <div style="color:#898781; font-size:12px;">{{ strtoupper($doc->tipo) }} · {{ $doc->created_at?->format('d/m/Y') }}@if ($doc->subido_por_user) · {{ $doc->subido_por_user->name }} @endif</div>
+              <div style="color:#898781; font-size:12px;">{{ strtoupper($doc->tipo) }} · {{ $doc->created_at?->format('d/m/Y') }}@if ($doc->subido_por_user) · {{ $doc->subido_por_user->name }} @elseif ($doc->subido_por_ciudadano) · Subido por el interesado @endif</div>
             </div>
             <div style="display:flex; align-items:center; gap:10px; flex:0 0 auto;">
               <span style="font-size:11.5px; color:{{ $doc->visible_ciudadano ? '#0ca30c' : '#898781' }};">{{ $doc->visible_ciudadano ? 'Visible al ciudadano' : 'Interno' }}</span>
               <a href="{{ route('admin.solicitudes.documentos.descargar', [$solicitud, $doc]) }}" style="font-size:12.5px; color:#2a78d6; text-decoration:none;">Descargar</a>
               @if (! $doc->visible_ciudadano && auth()->user()->hasPermission('documentos.publicar'))
-                <form method="POST" action="{{ route('admin.solicitudes.documentos.publicar', [$solicitud, $doc]) }}" onsubmit="return confirm('¿Publicar este documento? Será visible para el ciudadano.');">
+                <details style="position:relative;">
+                  <summary style="list-style:none; background:none; border:1px solid #0ca30c; color:#0ca30c; border-radius:6px; padding:4px 9px; font-size:11.5px; font-weight:600; cursor:pointer; display:inline-block;">Publicar</summary>
+                  <form method="POST" action="{{ route('admin.solicitudes.documentos.publicar', [$solicitud, $doc]) }}"
+                        onsubmit="return confirm('¿Publicar este documento? Será visible para el ciudadano en su seguimiento.');"
+                        style="position:absolute; right:0; z-index:5; background:#fff; border:1px solid #d8d6cf; border-radius:8px; padding:10px; margin-top:6px; width:210px; box-shadow:0 4px 14px rgba(0,0,0,.08); display:flex; flex-direction:column; gap:8px;">
+                    @csrf
+                    <label style="font-size:11.5px; display:flex; align-items:center; gap:6px;">
+                      <input type="hidden" name="enviar_correo" value="0">
+                      <input type="checkbox" name="enviar_correo" value="1" checked> Enviar por correo al interesado
+                    </label>
+                    <button type="submit" style="background:#0ca30c; color:#fff; border:0; border-radius:6px; padding:6px 9px; font-size:11.5px; font-weight:600; cursor:pointer;">Confirmar publicación</button>
+                  </form>
+                </details>
+              @endif
+              @if ($doc->visible_ciudadano && auth()->user()->hasPermission('documentos.publicar'))
+                <form method="POST" action="{{ route('admin.solicitudes.documentos.ocultar', [$solicitud, $doc]) }}" onsubmit="return confirm('¿Quitar la visibilidad de este documento? Ya no aparecerá en el seguimiento del ciudadano (si ya se envió un correo con este adjunto, ese correo no se puede recuperar).');">
                   @csrf
-                  <button type="submit" style="background:none; border:1px solid #0ca30c; color:#0ca30c; border-radius:6px; padding:4px 9px; font-size:11.5px; font-weight:600; cursor:pointer;">Publicar</button>
+                  <button type="submit" style="background:none; border:1px solid #d8d6cf; color:#898781; border-radius:6px; padding:4px 9px; font-size:11.5px; font-weight:600; cursor:pointer;">Quitar visibilidad</button>
                 </form>
               @endif
             </div>
@@ -508,6 +532,10 @@
             @if (auth()->user()->hasPermission('documentos.publicar'))
               <label style="font-size:12.5px; display:flex; align-items:center; gap:6px;">
                 <input type="checkbox" name="visible_ciudadano" value="1"> Publicar como visible al ciudadano
+              </label>
+              <label style="font-size:11.5px; color:#898781; display:flex; align-items:center; gap:6px; margin-left:22px;">
+                <input type="hidden" name="enviar_correo" value="0">
+                <input type="checkbox" name="enviar_correo" value="1" checked> Enviar por correo al interesado (solo si queda visible)
               </label>
             @endif
             <button type="submit" style="align-self:flex-start; background:#2a78d6; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Cargar documento</button>

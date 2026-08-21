@@ -31,8 +31,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 // vencimiento corto (URL::temporarySignedRoute), no por id directo.
 class SeguimientoController extends Controller
 {
-    public function __construct(private \App\Services\NotificacionService $notificaciones)
-    {
+    public function __construct(
+        private \App\Services\NotificacionService $notificaciones,
+        private \App\Services\DocumentoIntakeService $documentos
+    ) {
     }
 
     public function form(): View
@@ -148,21 +150,33 @@ class SeguimientoController extends Controller
      * que todavía no tiene número de correlativo: ese lo asigna la UIP
      * manualmente (ver ActuacionController::asignarCorrelativoRecurso),
      * igual que el resto de números "oficiales" del sistema.
+     *
+     * Fase 22c: un recurso de revisión solo procede una vez notificada/
+     * finalizada la resolución de la solicitud — antes de eso no hay nada
+     * que "recurrir" todavía. Se usa el flag "es_final" del estado (ya
+     * existía en SolicitudEstado) en vez de comparar contra una sola clave
+     * puntual, así cubre tanto "finalizada" como "rechazada". También
+     * permite adjuntar un documento de soporte opcional (queda interno,
+     * como cualquier documento subido por el ciudadano: la UIP decide si lo
+     * publica desde la pestaña "Documentos").
      */
     public function solicitarRecurso(Request $request): View
     {
         $data = $request->validate([
             'codigo_acceso' => ['required', 'string', 'max:255'],
             'motivo' => ['required', 'string', 'max:2000'],
+            'archivo' => ['nullable', 'file', 'mimes:'.implode(',', \App\Services\DocumentoIntakeService::MIMES), 'max:'.\App\Services\DocumentoIntakeService::MAX_KB],
         ]);
 
         $solicitud = $this->buscarSolicitud($data['codigo_acceso'], 'seguimiento_recurso|'.$request->ip());
 
-        if ($solicitud->estado?->clave === 'pendiente_validacion') {
-            return $this->resultadoView($solicitud, null, 'Tu solicitud todavía está en validación; espera a que la UIP la acepte antes de presentar un recurso de revisión.');
+        if (! $solicitud->estado?->es_final) {
+            return $this->resultadoView($solicitud, null, 'Todavía no se ha notificado la resolución de tu solicitud; podrás presentar un recurso de revisión una vez recibas la respuesta.');
         }
 
         RateLimiter::hit('seguimiento_recurso_accion|'.$request->ip(), 3600);
+
+        $documento = $this->documentos->guardar($solicitud, $request->file('archivo'), true, null);
 
         Actuacion::create([
             'solicitud_id' => $solicitud->id,
@@ -174,6 +188,7 @@ class SeguimientoController extends Controller
 
         RecursoRevision::create([
             'solicitud_id' => $solicitud->id,
+            'documento_id' => $documento?->id,
             'correlativo' => null,
             'fecha_presentacion' => now()->toDateString(),
             'motivo' => $data['motivo'],
@@ -183,7 +198,9 @@ class SeguimientoController extends Controller
         SolicitudHistorial::create([
             'solicitud_id' => $solicitud->id,
             'tipo_actor' => 'ciudadano',
-            'descripcion' => 'El interesado presentó un recurso de revisión desde el portal de seguimiento. Pendiente de que la UIP le asigne el número de correlativo.',
+            'descripcion' => 'El interesado presentó un recurso de revisión desde el portal de seguimiento.'
+                .($documento ? " Documento adjunto: {$documento->nombre}." : '')
+                .' Pendiente de que la UIP le asigne el número de correlativo.',
         ]);
 
         return $this->resultadoView($solicitud, 'Tu recurso de revisión fue registrado. La UIP le asignará un número de correlativo y te lo notificará por correo.');
@@ -203,6 +220,7 @@ class SeguimientoController extends Controller
         $data = $request->validate([
             'codigo_acceso' => ['required', 'string', 'max:255'],
             'descripcion' => ['required', 'string', 'max:2000'],
+            'archivo' => ['nullable', 'file', 'mimes:'.implode(',', \App\Services\DocumentoIntakeService::MIMES), 'max:'.\App\Services\DocumentoIntakeService::MAX_KB],
         ]);
 
         $solicitud = $this->buscarSolicitud($data['codigo_acceso'], 'seguimiento_ampliacion|'.$request->ip());
@@ -211,6 +229,8 @@ class SeguimientoController extends Controller
 
         $finalizada = $solicitud->estado?->clave === 'finalizada';
         $estado = $finalizada ? 'rechazada_no_regulada' : 'recibida';
+
+        $documento = $this->documentos->guardar($solicitud, $request->file('archivo'), true, null);
 
         Actuacion::create([
             'solicitud_id' => $solicitud->id,
@@ -222,6 +242,7 @@ class SeguimientoController extends Controller
 
         Ampliacion::create([
             'solicitud_id' => $solicitud->id,
+            'documento_id' => $documento?->id,
             'fecha_solicitud' => now()->toDateString(),
             'descripcion' => $data['descripcion'],
             'estado' => $estado,
@@ -233,9 +254,10 @@ class SeguimientoController extends Controller
         SolicitudHistorial::create([
             'solicitud_id' => $solicitud->id,
             'tipo_actor' => 'ciudadano',
-            'descripcion' => $finalizada
+            'descripcion' => ($finalizada
                 ? 'El interesado solicitó una ampliación desde el portal de seguimiento después de la resolución: no está regulada por la Ley de Acceso a la Información Pública.'
-                : 'El interesado solicitó una ampliación desde el portal de seguimiento: '.$data['descripcion'],
+                : 'El interesado solicitó una ampliación desde el portal de seguimiento: '.$data['descripcion'])
+                .($documento ? " Documento adjunto: {$documento->nombre}." : ''),
         ]);
 
         return $this->resultadoView($solicitud, $finalizada

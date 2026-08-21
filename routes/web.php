@@ -182,6 +182,10 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
         ->middleware('permission:documentos.publicar')
         ->name('solicitudes.documentos.publicar');
 
+    Route::post('/solicitudes/{solicitud}/documentos/{documento}/ocultar', [DocumentoController::class, 'ocultar'])
+        ->middleware('permission:documentos.publicar')
+        ->name('solicitudes.documentos.ocultar');
+
     // --- Panel del enlace (Fase 20): el contacto de una dependencia entra
     // con su misma cuenta pero solo ve/actúa sobre lo asignado a SU
     // dependencia — ver EnlaceController para el alcance real (el

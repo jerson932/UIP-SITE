@@ -32,23 +32,26 @@ class DocumentoController extends Controller
     {
     }
 
-    private function historial(Solicitud $solicitud, string $texto): void
+    private function historial(Solicitud $solicitud, string $texto, bool $visibleCiudadano = true): void
     {
         SolicitudHistorial::create([
             'solicitud_id' => $solicitud->id,
             'user_id' => auth()->id(),
             'tipo_actor' => 'administrador',
             'descripcion' => $texto,
+            'visible_ciudadano' => $visibleCiudadano,
         ]);
     }
 
     /**
      * Cuando un documento pasa a ser visible al ciudadano (al publicarlo,
-     * o al subirlo ya marcado como público) se le avisa por correo con el
-     * documento adjunto — a pedido del usuario: "cuando los documentos son
-     * publicos: tambien se adjuntan al enviar el correo". Reutiliza la
-     * plantilla "documentos_disponibles" que ya existía sembrada desde
-     * Fase 11 pero nunca se disparaba desde ningún lado.
+     * o al subirlo ya marcado como público) se PUEDE avisar por correo con
+     * el documento adjunto — reutiliza la plantilla "documentos_disponibles"
+     * (sembrada desde Fase 11, nunca disparada hasta Fase 22c). A partir de
+     * Fase 22c esto es opcional (checkbox "Enviar correo"), no automático:
+     * "en publicar es como dando opcion de que se enviara a su correo del
+     * interesado" — el envío obligatorio real ocurre al notificar/finalizar
+     * el expediente (ver SolicitudActionController::finalizar()), no aquí.
      */
     private function notificarDocumentoPublicado(Solicitud $solicitud, Documento $documento): void
     {
@@ -84,6 +87,7 @@ class DocumentoController extends Controller
             'archivo' => ['required', 'file', 'mimes:'.implode(',', DocumentoIntakeService::MIMES), 'max:'.self::MAX_KB],
             'nombre' => ['nullable', 'string', 'max:255'],
             'visible_ciudadano' => ['nullable', 'boolean'],
+            'enviar_correo' => ['nullable', 'boolean'],
         ]);
 
         $archivo = $request->file('archivo');
@@ -117,14 +121,19 @@ class DocumentoController extends Controller
 
         $mensajeCorreo = '';
         if ($visible) {
-            $this->notificarDocumentoPublicado($solicitud, $documento);
-            $mensajeCorreo = ' Se notificó por correo al interesado con el documento adjunto.';
+            $enviarCorreo = $request->boolean('enviar_correo', true);
+            if ($enviarCorreo) {
+                $this->notificarDocumentoPublicado($solicitud, $documento);
+                $mensajeCorreo = ' Se notificó por correo al interesado con el documento adjunto.';
+            } else {
+                $mensajeCorreo = ' No se envió correo (opción desmarcada).';
+            }
         }
 
         return back()->with('status', 'Documento cargado correctamente.'.$mensajeCorreo);
     }
 
-    public function publicar(Solicitud $solicitud, Documento $documento): RedirectResponse
+    public function publicar(Request $request, Solicitud $solicitud, Documento $documento): RedirectResponse
     {
         if ($documento->solicitud_id !== $solicitud->id) {
             abort(404);
@@ -134,12 +143,45 @@ class DocumentoController extends Controller
             return back()->with('error', 'Ese documento ya es visible al ciudadano.');
         }
 
+        $request->validate(['enviar_correo' => ['nullable', 'boolean']]);
+
         $documento->update(['visible_ciudadano' => true]);
 
         $this->historial($solicitud, "Documento publicado (visible al ciudadano): {$documento->nombre}");
-        $this->notificarDocumentoPublicado($solicitud, $documento);
 
-        return back()->with('status', 'Documento publicado. Ya es visible para el ciudadano en su seguimiento, y se le notificó por correo con el documento adjunto.');
+        $enviarCorreo = $request->boolean('enviar_correo', true);
+        if ($enviarCorreo) {
+            $this->notificarDocumentoPublicado($solicitud, $documento);
+
+            return back()->with('status', 'Documento publicado. Ya es visible para el ciudadano en su seguimiento, y se le notificó por correo con el documento adjunto.');
+        }
+
+        return back()->with('status', 'Documento publicado. Ya es visible para el ciudadano en su seguimiento. No se envió correo (opción desmarcada).');
+    }
+
+    /**
+     * Revierte la publicación de un documento (Fase 22c): deja de ser
+     * visible en el portal de seguimiento del ciudadano. No se puede
+     * "deshacer" un correo que ya se haya enviado con este documento
+     * adjunto — eso se advierte en el diálogo de confirmación del botón.
+     * Queda registrado en el historial, pero solo internamente (no se
+     * expone al ciudadano que un documento fue ocultado).
+     */
+    public function ocultar(Solicitud $solicitud, Documento $documento): RedirectResponse
+    {
+        if ($documento->solicitud_id !== $solicitud->id) {
+            abort(404);
+        }
+
+        if (! $documento->visible_ciudadano) {
+            return back()->with('error', 'Ese documento ya está oculto para el ciudadano.');
+        }
+
+        $documento->update(['visible_ciudadano' => false]);
+
+        $this->historial($solicitud, "Documento oculto (ya no es visible al ciudadano): {$documento->nombre}", visibleCiudadano: false);
+
+        return back()->with('status', 'Documento oculto. Ya no es visible para el ciudadano en su seguimiento.');
     }
 
     public function download(Solicitud $solicitud, Documento $documento): StreamedResponse
