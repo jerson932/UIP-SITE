@@ -96,6 +96,23 @@
   main{padding:26px 24px 40px; max-width:1240px; margin:0 auto; width:100%;}
   .card{background:#fff; border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin-bottom:18px;}
 
+  /* ---------- Notificaciones flotantes (Fase 22c) ---------- */
+  .toast-stack{
+    position:fixed; top:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px;
+    max-width:380px; width:calc(100% - 40px);
+  }
+  .toast{
+    display:flex; align-items:flex-start; gap:10px; padding:12px 14px; border-radius:10px; font-size:13.5px;
+    line-height:1.4; box-shadow:0 10px 28px rgba(15,24,38,.18); animation:toast-in .25s ease;
+  }
+  .toast span{flex:1;}
+  .toast-status{background:#e9f7ea; border:1px solid #b9e3bb; color:#256428;}
+  .toast-error{background:#fdecea; border:1px solid #f3c6c1; color:#8a2c22;}
+  .toast-close{background:none; border:0; cursor:pointer; color:inherit; opacity:.55; font-size:16px; line-height:1; padding:0; flex:0 0 auto;}
+  .toast-close:hover{opacity:1;}
+  .toast-hide{opacity:0; transform:translateX(10px); transition:opacity .3s ease, transform .3s ease;}
+  @keyframes toast-in{from{opacity:0; transform:translateX(10px);} to{opacity:1; transform:translateX(0);}}
+
   @media (max-width: 880px){
     :root{ --sidebar-w:210px; }
     .topbar-title p{display:none;}
@@ -103,6 +120,7 @@
 </style>
 </head>
 <body>
+@include('admin.partials.toast')
 @php
   $navUser = auth()->user();
   $iniciales = $navUser ? collect(explode(' ', trim($navUser->name)))->map(fn ($p) => mb_substr($p, 0, 1))->take(2)->implode('') : '';

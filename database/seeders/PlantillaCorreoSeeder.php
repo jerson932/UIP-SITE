@@ -65,6 +65,12 @@ class PlantillaCorreoSeeder extends Seeder
                 'cuerpo_template' => "Estimado (a) Usuario (a):\n\nCon un atento saludo nos dirigimos a usted, con el objeto de acusar recepción del Recurso de Revisión interpuesto por su persona y de conformidad con lo dispuesto en la Ley de Acceso a la Información Pública y el Manual de Procedimientos, se ha registrado como Recurso de Revisión No. {{correlativo_recurso}}, por lo que, de forma inmediata, se están acompañando los antecedentes y remitiendo para el trámite correspondiente.\n\nSin otro particular, nos suscribimos de usted,\n\nAtentamente,\n\n" . self::FOOTER,
             ],
             [
+                'clave' => 'recurso_resuelto',
+                'evento' => 'Se notifica la resolución de un Recurso de Revisión (Fase 22c)',
+                'asunto_template' => 'Resolución del Recurso de Revisión No. {{correlativo_recurso}}',
+                'cuerpo_template' => "Estimado (a) Usuario (a):\n\nCon un atento saludo nos dirigimos a usted, con el objeto de notificarle la resolución correspondiente al Recurso de Revisión No. {{correlativo_recurso}}, la cual encontrará adjunta a la presente.\n\nSin otro particular, nos suscribimos de usted,\n\nAtentamente,\n\n" . self::FOOTER,
+            ],
+            [
                 'clave' => 'documentos_disponibles',
                 'evento' => 'Se publica documentación en el panel ciudadano',
                 'asunto_template' => 'Documentos disponibles - Contraseña No. {{contrasena}}',

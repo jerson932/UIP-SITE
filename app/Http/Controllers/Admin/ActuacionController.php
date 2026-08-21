@@ -357,4 +357,56 @@ class ActuacionController extends Controller
 
         return back()->with('status', 'Correlativo asignado. '.$this->notificaciones->describirResultado($correo));
     }
+
+    /**
+     * Fase 22c, a pedido del usuario: "el recurso es visible hasta que se
+     * notifique la resolucion" — un recurso de revisión queda abierto (en
+     * el panel y en el seguimiento del ciudadano) hasta que la UIP registra
+     * y notifica su resolución con esta acción. Requiere correlativo (no
+     * se puede resolver un recurso al que la UIP todavía no le asignó
+     * número) y solo se puede hacer una vez.
+     */
+    public function resolverRecurso(Request $request, Solicitud $solicitud, RecursoRevision $recurso): RedirectResponse
+    {
+        if ($recurso->solicitud_id !== $solicitud->id) {
+            abort(404);
+        }
+
+        if (! $recurso->correlativo) {
+            return back()->with('error', 'Este recurso de revisión todavía no tiene correlativo asignado — asígnalo antes de registrar su resolución.');
+        }
+
+        if ($recurso->estado === 'resuelto') {
+            return back()->with('error', 'Este recurso de revisión ya fue resuelto.');
+        }
+
+        $data = $request->validate([
+            'resolucion' => ['required', 'string', 'max:4000'],
+            'documento' => ['nullable', 'file', 'mimes:pdf', 'max:'.DocumentoIntakeService::MAX_KB],
+        ]);
+
+        $documento = $this->adjuntarDocumento($solicitud, $request, 'documento');
+
+        $recurso->update([
+            'estado' => 'resuelto',
+            'fecha_resolucion' => now()->toDateString(),
+        ]);
+
+        $enviarCorreo = $request->boolean('enviar_correo', true);
+        $correo = $enviarCorreo
+            ? $this->notificaciones->enviar($solicitud, 'recurso_resuelto', [
+                'correlativo_recurso' => $recurso->correlativo,
+            ], auth()->id(), $this->adjuntoParaCorreo($documento))
+            : null;
+
+        $this->historial(
+            $solicitud,
+            "Recurso de revisión No. {$recurso->correlativo} resuelto: {$data['resolucion']}"
+            .($documento ? " Documento adjunto: {$documento->nombre}." : '')
+        );
+
+        $mensajeCorreo = $enviarCorreo ? $this->notificaciones->describirResultado($correo) : 'No se envió correo (opción desmarcada).';
+
+        return back()->with('status', 'Resolución registrada. '.$mensajeCorreo);
+    }
 }

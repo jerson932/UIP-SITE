@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Mail\PlantillaCorreoMail;
 use App\Models\Documento;
 use App\Models\Permission;
+use App\Models\PlantillaCorreo;
 use App\Models\Rol;
 use App\Models\Solicitante;
 use App\Models\Solicitud;
@@ -12,6 +14,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -126,6 +129,59 @@ class DocumentosTest extends TestCase
         $this->assertTrue($documento->visible_ciudadano);
     }
 
+    // A pedido del usuario: "cuando los documentos son publicos: tambien
+    // se adjuntan al enviar el correo" — subir un documento ya marcado
+    // como visible al ciudadano debe notificarle por correo con ese mismo
+    // documento adjunto (antes no se enviaba ningún correo en este flujo).
+    public function test_subir_documento_visible_notifica_por_correo_con_el_adjunto(): void
+    {
+        $this->seedCatalog();
+        PlantillaCorreo::create([
+            'clave' => 'documentos_disponibles',
+            'evento' => 'test',
+            'asunto_template' => 'Documentos disponibles - Contraseña No. {{contrasena}}',
+            'cuerpo_template' => 'Hay documentos nuevos, {{nombre}}.',
+            'activa' => true,
+        ]);
+        Storage::fake('local');
+        Mail::fake();
+        $user = $this->adminConPermisos(['solicitudes.ver', 'documentos.subir', 'documentos.publicar']);
+        $solicitud = $this->solicitud();
+
+        $this->actingAs($user)->post("/admin/solicitudes/{$solicitud->id}/documentos", [
+            'archivo' => UploadedFile::fake()->create('resolucion.pdf', 200, 'application/pdf'),
+            'visible_ciudadano' => '1',
+        ]);
+
+        $correo = $solicitud->correos_enviados()->first();
+        $this->assertNotNull($correo);
+        $this->assertEquals(1, $correo->correo_adjuntos()->count());
+        Mail::assertSent(PlantillaCorreoMail::class);
+    }
+
+    public function test_subir_documento_interno_no_envia_correo(): void
+    {
+        $this->seedCatalog();
+        PlantillaCorreo::create([
+            'clave' => 'documentos_disponibles',
+            'evento' => 'test',
+            'asunto_template' => 'Documentos disponibles - Contraseña No. {{contrasena}}',
+            'cuerpo_template' => 'Hay documentos nuevos, {{nombre}}.',
+            'activa' => true,
+        ]);
+        Storage::fake('local');
+        Mail::fake();
+        $user = $this->adminConPermisos(['solicitudes.ver', 'documentos.subir']);
+        $solicitud = $this->solicitud();
+
+        $this->actingAs($user)->post("/admin/solicitudes/{$solicitud->id}/documentos", [
+            'archivo' => UploadedFile::fake()->create('interno.pdf', 200, 'application/pdf'),
+        ]);
+
+        $this->assertEquals(0, $solicitud->correos_enviados()->count());
+        Mail::assertNothingSent();
+    }
+
     public function test_subir_documento_rechaza_extension_no_permitida(): void
     {
         $this->seedCatalog();
@@ -194,6 +250,35 @@ class DocumentosTest extends TestCase
         $response->assertRedirect();
         $this->assertTrue($documento->fresh()->visible_ciudadano);
         $this->assertEquals(1, $solicitud->solicitud_historial()->count());
+    }
+
+    public function test_publicar_notifica_por_correo_con_el_documento_adjunto(): void
+    {
+        $this->seedCatalog();
+        PlantillaCorreo::create([
+            'clave' => 'documentos_disponibles',
+            'evento' => 'test',
+            'asunto_template' => 'Documentos disponibles - Contraseña No. {{contrasena}}',
+            'cuerpo_template' => 'Hay documentos nuevos, {{nombre}}.',
+            'activa' => true,
+        ]);
+        Storage::fake('local');
+        Mail::fake();
+        $user = $this->adminConPermisos(['solicitudes.ver', 'documentos.publicar']);
+        $solicitud = $this->solicitud();
+        $documento = Documento::create([
+            'solicitud_id' => $solicitud->id,
+            'nombre' => 'doc.pdf',
+            'ruta_archivo' => 'documentos/solicitud_1/doc.pdf',
+            'tipo' => 'pdf',
+            'visible_ciudadano' => false,
+        ]);
+
+        $this->actingAs($user)->post("/admin/solicitudes/{$solicitud->id}/documentos/{$documento->id}/publicar");
+
+        $correo = $solicitud->correos_enviados()->first();
+        $this->assertNotNull($correo);
+        Mail::assertSent(PlantillaCorreoMail::class);
     }
 
     public function test_descargar_documento_devuelve_el_archivo(): void

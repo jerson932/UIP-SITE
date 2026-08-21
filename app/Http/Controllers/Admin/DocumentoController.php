@@ -7,6 +7,7 @@ use App\Models\Documento;
 use App\Models\Solicitud;
 use App\Models\SolicitudHistorial;
 use App\Services\DocumentoIntakeService;
+use App\Services\NotificacionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -27,6 +28,10 @@ class DocumentoController extends Controller
 {
     private const MAX_KB = 10240; // 10 MB
 
+    public function __construct(private NotificacionService $notificaciones)
+    {
+    }
+
     private function historial(Solicitud $solicitud, string $texto): void
     {
         SolicitudHistorial::create([
@@ -34,6 +39,22 @@ class DocumentoController extends Controller
             'user_id' => auth()->id(),
             'tipo_actor' => 'administrador',
             'descripcion' => $texto,
+        ]);
+    }
+
+    /**
+     * Cuando un documento pasa a ser visible al ciudadano (al publicarlo,
+     * o al subirlo ya marcado como público) se le avisa por correo con el
+     * documento adjunto — a pedido del usuario: "cuando los documentos son
+     * publicos: tambien se adjuntan al enviar el correo". Reutiliza la
+     * plantilla "documentos_disponibles" que ya existía sembrada desde
+     * Fase 11 pero nunca se disparaba desde ningún lado.
+     */
+    private function notificarDocumentoPublicado(Solicitud $solicitud, Documento $documento): void
+    {
+        $this->notificaciones->enviar($solicitud, 'documentos_disponibles', [], auth()->id(), [
+            'ruta_absoluta' => Storage::disk('local')->path($documento->ruta_archivo),
+            'nombre' => $documento->nombre,
         ]);
     }
 
@@ -94,7 +115,13 @@ class DocumentoController extends Controller
             "Documento cargado: {$documento->nombre}".($visible ? ' (visible al ciudadano).' : '.')
         );
 
-        return back()->with('status', 'Documento cargado correctamente.');
+        $mensajeCorreo = '';
+        if ($visible) {
+            $this->notificarDocumentoPublicado($solicitud, $documento);
+            $mensajeCorreo = ' Se notificó por correo al interesado con el documento adjunto.';
+        }
+
+        return back()->with('status', 'Documento cargado correctamente.'.$mensajeCorreo);
     }
 
     public function publicar(Solicitud $solicitud, Documento $documento): RedirectResponse
@@ -110,8 +137,9 @@ class DocumentoController extends Controller
         $documento->update(['visible_ciudadano' => true]);
 
         $this->historial($solicitud, "Documento publicado (visible al ciudadano): {$documento->nombre}");
+        $this->notificarDocumentoPublicado($solicitud, $documento);
 
-        return back()->with('status', 'Documento publicado. Ya es visible para el ciudadano en su seguimiento.');
+        return back()->with('status', 'Documento publicado. Ya es visible para el ciudadano en su seguimiento, y se le notificó por correo con el documento adjunto.');
     }
 
     public function download(Solicitud $solicitud, Documento $documento): StreamedResponse

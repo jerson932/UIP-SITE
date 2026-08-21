@@ -5,12 +5,6 @@
 @section('pageSubtitle', 'Plantillas de correo y días feriados usados en el cálculo de plazos')
 
 @section('content')
-  @if (session('status'))
-    <div style="background:#e9f7ea; border:1px solid #b9e3bb; color:#256428; border-radius:8px; padding:10px 14px; font-size:13.5px; margin-bottom:14px;">{{ session('status') }}</div>
-  @endif
-  @if (session('error'))
-    <div style="background:#fdecea; border:1px solid #f3c6c1; color:#8a2c22; border-radius:8px; padding:10px 14px; font-size:13.5px; margin-bottom:14px;">{{ session('error') }}</div>
-  @endif
   @if ($errors->any())
     <div style="background:#fdecea; border:1px solid #f3c6c1; color:#8a2c22; border-radius:8px; padding:10px 14px; font-size:13.5px; margin-bottom:14px;">
       <ul style="margin:0; padding-left:18px;">@foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach</ul>

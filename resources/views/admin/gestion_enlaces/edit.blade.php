@@ -5,12 +5,6 @@
 @section('content')
   <a href="{{ route('admin.enlaces.index') }}" style="font-size:13px; color:#52514e; text-decoration:none;">← Volver al listado</a>
 
-  @if (session('status'))
-    <div style="background:#e9f7ea; border:1px solid #b9e3bb; color:#256428; border-radius:8px; padding:10px 14px; font-size:13.5px; margin:12px 0;">{{ session('status') }}</div>
-  @endif
-  @if (session('error'))
-    <div style="background:#fdecea; border:1px solid #f3c6c1; color:#8a2c22; border-radius:8px; padding:10px 14px; font-size:13.5px; margin:12px 0;">{{ session('error') }}</div>
-  @endif
   @if ($errors->any())
     <div style="background:#fdecea; border:1px solid #f3c6c1; color:#8a2c22; border-radius:8px; padding:10px 14px; font-size:13.5px; margin:12px 0;">
       <ul style="margin:0; padding-left:18px;">@foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach</ul>

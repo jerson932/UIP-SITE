@@ -187,11 +187,17 @@ class SolicitudActionController extends Controller
             'dependencia_id' => ['required', 'exists:dependencias,id'],
             'rc' => ['nullable', 'string', 'max:50'],
             'folio' => ['nullable', 'string', 'max:50'],
-            'no_oficio' => [$tipo === 'oficio' ? 'required' : 'nullable', 'string', 'max:50'],
-            'no_providencia' => [$tipo === 'providencia' ? 'required' : 'nullable', 'string', 'max:50'],
+            // No se pueden repetir (a pedido del usuario): cada número de
+            // oficio/providencia es único en todo el sistema, sin importar
+            // el expediente o la dependencia — igual que el correlativo de
+            // un Recurso de Revisión.
+            'no_oficio' => [$tipo === 'oficio' ? 'required' : 'nullable', 'string', 'max:50', 'unique:documentos,no_oficio'],
+            'no_providencia' => [$tipo === 'providencia' ? 'required' : 'nullable', 'string', 'max:50', 'unique:documentos,no_providencia'],
         ], [
             'no_oficio.required' => 'El número de oficio es obligatorio para esta dependencia.',
             'no_providencia.required' => 'El número de providencia es obligatorio para esta dependencia.',
+            'no_oficio.unique' => 'Ese número de oficio ya se usó en otro documento — cada número de oficio debe ser único.',
+            'no_providencia.unique' => 'Ese número de providencia ya se usó en otro documento — cada número de providencia debe ser único.',
         ]);
 
         try {

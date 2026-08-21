@@ -162,6 +162,13 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
         ->middleware('permission:actuaciones.recurso')
         ->name('solicitudes.recurso.correlativo');
 
+    // Fase 22c: "el recurso es visible hasta que se notifique la
+    // resolucion" — registra y notifica la resolución de un recurso de
+    // revisión (requiere que ya tenga correlativo asignado).
+    Route::post('/solicitudes/{solicitud}/recurso/{recurso}/resolver', [ActuacionController::class, 'resolverRecurso'])
+        ->middleware('permission:actuaciones.recurso')
+        ->name('solicitudes.recurso.resolver');
+
     // --- Documentos (Fase 10: carga y publicación al ciudadano) ---
     Route::post('/solicitudes/{solicitud}/documentos', [DocumentoController::class, 'store'])
         ->middleware('permission:documentos.subir')

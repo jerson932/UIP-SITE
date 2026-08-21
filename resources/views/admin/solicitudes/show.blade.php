@@ -23,12 +23,6 @@
 @section('content')
   <a href="{{ route('admin.solicitudes.index') }}" style="font-size:13px; color:#52514e; text-decoration:none;">← Volver al listado</a>
 
-  @if (session('status'))
-    <div style="background:#e9f7ea; border:1px solid #b9e3bb; color:#256428; border-radius:8px; padding:10px 14px; font-size:13.5px; margin:12px 0;">{{ session('status') }}</div>
-  @endif
-  @if (session('error'))
-    <div style="background:#fdecea; border:1px solid #f3c6c1; color:#8a2c22; border-radius:8px; padding:10px 14px; font-size:13.5px; margin:12px 0;">{{ session('error') }}</div>
-  @endif
   @if ($errors->any())
     <div style="background:#fdecea; border:1px solid #f3c6c1; color:#8a2c22; border-radius:8px; padding:10px 14px; font-size:13.5px; margin:12px 0;">
       <ul style="margin:0; padding-left:18px;">@foreach ($errors->all() as $e) <li>{{ $e }}</li> @endforeach</ul>
@@ -357,7 +351,28 @@
             @if ($r->correlativo)
               <div>Recurso de Revisión No. <strong>{{ $r->correlativo }}</strong> — presentado {{ \Illuminate\Support\Carbon::parse($r->fecha_presentacion)->format('d/m/Y') }}</div>
               <div style="color:#898781; margin-top:4px;">{{ $r->motivo }}</div>
-              <div style="margin-top:4px;">Estado: <strong>{{ ucfirst(str_replace('_', ' ', $r->estado)) }}</strong></div>
+              <div style="margin-top:4px;">
+                Estado:
+                @if ($r->estado === 'resuelto')
+                  <strong style="color:#0ca30c;">Resuelto</strong>
+                  @if ($r->fecha_resolucion)
+                    — {{ \Illuminate\Support\Carbon::parse($r->fecha_resolucion)->format('d/m/Y') }}
+                  @endif
+                @else
+                  <strong style="color:#a86a06;">Pendiente de resolución</strong>
+                @endif
+              </div>
+
+              @if ($r->estado !== 'resuelto' && auth()->user()->hasPermission('actuaciones.recurso'))
+                <form method="POST" action="{{ route('admin.solicitudes.recurso.resolver', [$solicitud, $r]) }}" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid #f0efec;">
+                  @csrf
+                  <label style="font-size:12px; color:#898781;">Resolución</label>
+                  <textarea name="resolucion" rows="2" required placeholder="Describe la resolución del recurso…"
+                            style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px; font-family:inherit;"></textarea>
+                  @include('admin.partials.enviar-correo-campos', ['label' => 'la resolución del recurso'])
+                  <button type="submit" style="align-self:flex-start; background:#0ca30c; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Registrar resolución</button>
+                </form>
+              @endif
             @else
               <div style="background:#fff8e6; border:1px solid #f0dfa8; border-radius:8px; padding:8px 10px; margin-bottom:8px; font-size:12.5px; color:#8a6100;">
                 Presentado por el interesado desde su portal de seguimiento el {{ \Illuminate\Support\Carbon::parse($r->fecha_presentacion)->format('d/m/Y') }} — todavía sin número de correlativo.

@@ -5,9 +5,6 @@
 @section('pageSubtitle', 'Listado general — filtra por estado o busca por interesado, correo, código o contraseña')
 
 @section('content')
-  @if (session('status'))
-    <div style="background:#e9f7ea; border:1px solid #b9e3bb; color:#256428; border-radius:8px; padding:10px 14px; font-size:13.5px; margin-bottom:14px;">{{ session('status') }}</div>
-  @endif
 
   @if (auth()->user()->hasPermission('solicitudes.crear'))
     <div style="display:flex; justify-content:flex-end; margin-bottom:14px;">

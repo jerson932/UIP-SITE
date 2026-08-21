@@ -5,12 +5,6 @@
 @section('pageSubtitle', 'Contactos de cada dependencia y su acceso al portal de enlace')
 
 @section('content')
-  @if (session('status'))
-    <div style="background:#e9f7ea; border:1px solid #b9e3bb; color:#256428; border-radius:8px; padding:10px 14px; font-size:13.5px; margin-bottom:14px;">{{ session('status') }}</div>
-  @endif
-  @if (session('error'))
-    <div style="background:#fdecea; border:1px solid #f3c6c1; color:#8a2c22; border-radius:8px; padding:10px 14px; font-size:13.5px; margin-bottom:14px;">{{ session('error') }}</div>
-  @endif
 
   <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">

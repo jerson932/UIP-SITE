@@ -200,6 +200,74 @@ class DocumentoOficialTest extends TestCase
         $this->assertEquals(0, Documento::where('solicitud_id', $solicitud->id)->count());
     }
 
+    // A pedido del usuario: "el numero de providencia y oficio no se
+    // pueden repetir" — cada número debe ser único en todo el sistema.
+    public function test_no_permite_repetir_un_numero_de_oficio_ya_usado(): void
+    {
+        Storage::fake('local');
+        $this->plantilla('oficio_despacho', 'Oficio — Despacho Superior');
+        $admin = $this->adminConPermisos(['solicitudes.generar_documento']);
+        $dep = $this->dependencia('DESPACHO', 'oficio_despacho', 'Despacho Superior');
+        $solicitudA = $this->solicitudBase();
+
+        $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitudA), [
+            'dependencia_id' => $dep->id,
+            'no_oficio' => '10-2026',
+        ]);
+
+        $solicitudB = Solicitud::create([
+            'codigo_ns' => 'NS_TEST2-2026',
+            'contrasena' => '1632-2026',
+            'codigo_acceso' => 'TEST-0002',
+            'solicitante_id' => $solicitudA->solicitante_id,
+            'asunto' => 'otra solicitud distinta',
+            'medio_recepcion' => 'electronica',
+            'estado_id' => $solicitudA->estado_id,
+            'fecha_ingreso' => now()->toDateString(),
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitudB), [
+            'dependencia_id' => $dep->id,
+            'no_oficio' => '10-2026',
+        ]);
+
+        $response->assertSessionHasErrors('no_oficio');
+        $this->assertEquals(1, Documento::where('no_oficio', '10-2026')->count());
+    }
+
+    public function test_no_permite_repetir_un_numero_de_providencia_ya_usado(): void
+    {
+        Storage::fake('local');
+        $this->plantilla('providencia_generica', 'Providencia genérica');
+        $admin = $this->adminConPermisos(['solicitudes.generar_documento']);
+        $dep = $this->dependencia('OTRA', null, 'Otra Dependencia');
+        $solicitudA = $this->solicitudBase();
+
+        $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitudA), [
+            'dependencia_id' => $dep->id,
+            'no_providencia' => '20-2026',
+        ]);
+
+        $solicitudB = Solicitud::create([
+            'codigo_ns' => 'NS_TEST3-2026',
+            'contrasena' => '1633-2026',
+            'codigo_acceso' => 'TEST-0003',
+            'solicitante_id' => $solicitudA->solicitante_id,
+            'asunto' => 'otra solicitud distinta',
+            'medio_recepcion' => 'electronica',
+            'estado_id' => $solicitudA->estado_id,
+            'fecha_ingreso' => now()->toDateString(),
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitudB), [
+            'dependencia_id' => $dep->id,
+            'no_providencia' => '20-2026',
+        ]);
+
+        $response->assertSessionHasErrors('no_providencia');
+        $this->assertEquals(1, Documento::where('no_providencia', '20-2026')->count());
+    }
+
     public function test_no_permite_generar_sin_elegir_dependencia(): void
     {
         $admin = $this->adminConPermisos(['solicitudes.generar_documento']);
