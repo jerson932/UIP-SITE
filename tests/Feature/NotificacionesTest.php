@@ -44,6 +44,7 @@ class NotificacionesTest extends TestCase
         foreach ([
             ['clave' => 'solicitud_recibida', 'evento' => 'test', 'asunto_template' => 'Notificación de recepción - Contraseña No. {{contrasena}}', 'cuerpo_template' => 'Hola {{nombre}}, su contraseña es {{contrasena}}.'],
             ['clave' => 'finalizacion', 'evento' => 'test', 'asunto_template' => 'Expediente finalizado - Contraseña No. {{contrasena}}', 'cuerpo_template' => 'Su expediente {{contrasena}} fue finalizado.'],
+            ['clave' => 'resolucion_respuesta', 'evento' => 'test', 'asunto_template' => 'RESPUESTA SOLICITUD No. {{contrasena}}', 'cuerpo_template' => 'Su expediente {{contrasena}} fue resuelto.'],
             ['clave' => 'prorroga', 'evento' => 'test', 'asunto_template' => 'Notificación de Prórroga - Contraseña No. {{contrasena}}', 'cuerpo_template' => 'Señor(a) {{nombre}}, se le notifica prórroga.'],
             ['clave' => 'aclaracion_solicitada', 'evento' => 'test', 'asunto_template' => 'Solicitud de aclaración - Contraseña No. {{contrasena}}', 'cuerpo_template' => 'Se requiere aclaración, {{nombre}}.'],
             ['clave' => 'ampliacion_no_procedente', 'evento' => 'test', 'asunto_template' => 'Respuesta a ampliación - Contraseña No. {{contrasena}}', 'cuerpo_template' => 'Estimado {{nombre}}, no procede la ampliación.'],

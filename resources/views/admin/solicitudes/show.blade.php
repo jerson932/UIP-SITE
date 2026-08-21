@@ -56,13 +56,10 @@
         <button type="submit" style="background:#d03b3b; color:#fff; border:0; border-radius:7px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer;">Rechazar solicitud</button>
       </form>
     @elseif (! in_array($estadoClave, ['finalizada', 'rechazada']) && auth()->user()->hasPermission('solicitudes.finalizar'))
-      <form method="POST" action="{{ route('admin.solicitudes.finalizar', $solicitud) }}" onsubmit="return confirm('¿Finalizar este expediente?');">
-        @csrf
-        <button type="submit" @disabled(! $solicitud->contrasena)
-          style="background:{{ $solicitud->contrasena ? '#0ca30c' : '#c3c2b7' }}; color:#fff; border:0; border-radius:7px; padding:8px 16px; font-size:13px; font-weight:600; cursor:{{ $solicitud->contrasena ? 'pointer' : 'not-allowed' }};">
-          Finalizar expediente
-        </button>
-      </form>
+      <a href="?tab=seguimiento#notificacion-resolucion"
+         style="background:{{ $solicitud->contrasena ? '#0ca30c' : '#c3c2b7' }}; color:#fff; border-radius:7px; padding:8px 16px; font-size:13px; font-weight:600; text-decoration:none; pointer-events:{{ $solicitud->contrasena ? 'auto' : 'none' }};">
+        Finalizar expediente
+      </a>
     @endif
     <a href="?tab=historial" style="align-self:center; font-size:13px; color:#2a78d6; text-decoration:none;">Ver historial</a>
     <a href="?tab=documentos" style="align-self:center; font-size:13px; color:#2a78d6; text-decoration:none;">Ver documentos</a>
@@ -130,30 +127,15 @@
         @if ($solicitud->dependencia)
           <div style="font-size:13px;"><span style="color:#898781;">Dependencia</span><br>{{ $solicitud->dependencia->nombre }}</div>
           <div style="font-size:13px; margin-top:6px;"><span style="color:#898781;">Enlace responsable</span><br>{{ $solicitud->enlace->nombre ?? '—' }}</div>
+          <p style="font-size:11.5px; color:#898781; margin:10px 0 0;">
+            La asignación se hace automáticamente al generar un Oficio o Providencia hacia una dependencia
+            (más abajo, "Oficios y providencias") — no hay un formulario manual por separado.
+          </p>
         @else
-          <p style="font-size:13px; color:#898781; margin:0 0 10px;">Aún no se ha asignado dependencia.</p>
-        @endif
-        @if (auth()->user()->hasPermission('solicitudes.asignar_dependencia'))
-          <form method="POST" action="{{ route('admin.solicitudes.dependencia', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
-            @csrf
-            <select name="dependencia_id" required style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
-              <option value="">Selecciona dependencia…</option>
-              @foreach ($dependencias as $dep)
-                <option value="{{ $dep->id }}" @selected($solicitud->dependencia_id === $dep->id)>{{ $dep->nombre }}</option>
-              @endforeach
-            </select>
-            <select name="enlace_id" style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
-              <option value="">Sin enlace específico</option>
-              @foreach ($dependencias as $dep)
-                @foreach ($dep->enlaces as $enlace)
-                  <option value="{{ $enlace->id }}" @selected($solicitud->enlace_id === $enlace->id)>{{ $enlace->nombre }} ({{ $dep->nombre }})</option>
-                @endforeach
-              @endforeach
-            </select>
-            <button type="submit" style="background:#2a78d6; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">
-              {{ $solicitud->dependencia ? 'Reasignar' : 'Asignar' }}
-            </button>
-          </form>
+          <p style="font-size:13px; color:#898781; margin:0;">
+            Aún no se ha asignado dependencia. Se asigna automáticamente al generar el primer Oficio o
+            Providencia hacia una dependencia (más abajo, "Oficios y providencias").
+          </p>
         @endif
       </div>
 
@@ -196,10 +178,21 @@
               </div>
               <div style="flex:1;">
                 <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">FOLIO</label>
-                <input name="folio" value="{{ $solicitud->folio }}" placeholder="ej. 56"
-                       style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+                @if ($solicitud->folio)
+                  {{-- El folio solo se asigna una vez, en el primer oficio/providencia del
+                       expediente — ya no se puede cambiar desde aquí (DocumentoOficialService::generar()
+                       lo ignora si ya hay uno guardado, esto solo lo deja claro en la pantalla). --}}
+                  <input value="{{ $solicitud->folio }}" disabled
+                         style="width:100%; padding:8px 10px; border:1px solid #e1e0d9; border-radius:7px; font-size:13px; background:#f4f5f7; color:#52514e;">
+                @else
+                  <input name="folio" placeholder="ej. 56"
+                         style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+                @endif
               </div>
             </div>
+            @if ($solicitud->folio)
+              <p style="font-size:11.5px; color:#898781; margin:0;">El folio se asignó con el primer oficio/providencia de este expediente y ya no cambia.</p>
+            @endif
             <div id="doc-oficial-campo-oficio">
               <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">No. de oficio</label>
               <input name="no_oficio" placeholder="ej. 123-2026"
@@ -284,6 +277,51 @@
           <p style="font-size:13px; color:#52514e; background:#f9f9f7; border-radius:8px; padding:10px 12px;">{{ $solicitud->observaciones }}</p>
         @endif
 
+        @if (! in_array($estadoClave, ['finalizada', 'rechazada']) && auth()->user()->hasPermission('solicitudes.finalizar'))
+          <div id="notificacion-resolucion" style="margin-top:18px; padding-top:16px; border-top:1px solid #f0efec;">
+            <h4 style="margin:0 0 4px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">Notificación de resolución</h4>
+            @if (! $solicitud->contrasena)
+              <p style="font-size:12.5px; color:#898781; margin:6px 0 0;">Debe asignarse la contraseña antes de poder finalizar el expediente.</p>
+            @else
+              <p style="font-size:12px; color:#898781; margin:6px 0 10px;">
+                Finaliza el expediente y notifica al interesado con asunto
+                "RESPUESTA SOLICITUD No. {{ \App\Support\FormatoOficial::conComas($solicitud->contrasena) }}".
+              </p>
+              <form method="POST" action="{{ route('admin.solicitudes.finalizar', $solicitud) }}" enctype="multipart/form-data"
+                    onsubmit="return confirm('¿Finalizar este expediente?');"
+                    style="display:flex; flex-direction:column; gap:8px;">
+                @csrf
+                @include('admin.partials.enviar-correo-campos', ['label' => 'el documento de resolución'])
+                <button type="submit" style="align-self:flex-start; background:#0ca30c; color:#fff; border:0; border-radius:7px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer;">
+                  Finalizar y notificar
+                </button>
+              </form>
+            @endif
+          </div>
+        @endif
+
+        @if (auth()->user()->hasPermission('correos.enviar'))
+          <div style="margin-top:18px; padding-top:16px; border-top:1px solid #f0efec;">
+            <h4 style="margin:0 0 4px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">Enviar correo</h4>
+            <p style="font-size:12px; color:#898781; margin:6px 0 10px;">Correo libre (sin plantilla) — para casos que no encajan en una notificación automática.</p>
+            <form method="POST" action="{{ route('admin.solicitudes.correo', $solicitud) }}" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:8px;">
+              @csrf
+              <label style="font-size:12px; color:#898781;">Para</label>
+              <input type="email" name="destinatario" value="{{ old('destinatario', $solicitud->solicitante->correo) }}" required
+                     style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+              <label style="font-size:12px; color:#898781;">Asunto</label>
+              <input name="asunto" value="{{ old('asunto') }}" required
+                     style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+              <label style="font-size:12px; color:#898781;">Mensaje</label>
+              <textarea name="cuerpo" rows="4" required
+                        style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px; font-family:inherit;">{{ old('cuerpo') }}</textarea>
+              <label style="font-size:12px; color:#898781; display:block; margin-bottom:-2px;">Adjuntar PDF (opcional)</label>
+              <input type="file" name="documento" accept=".pdf" style="padding:6px 0; font-size:13px;">
+              <button type="submit" style="align-self:flex-start; background:#2a78d6; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Enviar correo</button>
+            </form>
+          </div>
+        @endif
+
       @elseif ($tab === 'prorroga')
         @forelse ($solicitud->prorrogas as $p)
           <div style="border-bottom:1px solid #f0efec; padding:10px 0; font-size:13px;">
@@ -296,7 +334,7 @@
 
         @if (auth()->user()->hasPermission('actuaciones.prorroga') && ! in_array($estadoClave, ['pendiente_validacion', 'finalizada', 'rechazada']))
           @if ($solicitud->fecha_vencimiento)
-            <form method="POST" action="{{ route('admin.solicitudes.prorroga', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
+            <form method="POST" action="{{ route('admin.solicitudes.prorroga', $solicitud) }}" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
               @csrf
               <label style="font-size:12px; color:#898781;">Nueva fecha de vencimiento (actual: {{ $solicitud->fecha_vencimiento->format('d/m/Y') }})</label>
               <input type="date" name="fecha_nueva" min="{{ $solicitud->fecha_vencimiento->copy()->addDay()->toDateString() }}" required
@@ -304,6 +342,8 @@
               <label style="font-size:12px; color:#898781;">Motivo</label>
               <textarea name="motivo" rows="2" required placeholder="Por qué se requiere más tiempo…"
                         style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px; font-family:inherit;"></textarea>
+              @include('admin.partials.enviar-correo-campos', ['label' => 'el PDF de la prórroga'])
+              <p style="font-size:11px; color:#898781; margin:0;">Asunto del correo: "Prórroga Solicitud {{ \App\Support\FormatoOficial::conComas($solicitud->contrasena) }}".</p>
               <button type="submit" style="align-self:flex-start; background:#4a3aa7; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Registrar prórroga</button>
             </form>
           @else
@@ -323,7 +363,7 @@
         @endforelse
 
         @if (auth()->user()->hasPermission('actuaciones.recurso') && $estadoClave !== 'pendiente_validacion')
-          <form method="POST" action="{{ route('admin.solicitudes.recurso', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
+          <form method="POST" action="{{ route('admin.solicitudes.recurso', $solicitud) }}" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
             @csrf
             <label style="font-size:12px; color:#898781;">Correlativo</label>
             <input name="correlativo" placeholder="ej. 30-2026" required
@@ -334,6 +374,8 @@
             <label style="font-size:12px; color:#898781;">Fecha de vencimiento (opcional)</label>
             <input type="date" name="fecha_vencimiento" min="{{ now()->toDateString() }}"
                    style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+            @include('admin.partials.enviar-correo-campos', ['label' => 'el PDF del recurso'])
+            <p style="font-size:11px; color:#898781; margin:0;">Asunto del correo: "Recurso Revisión No. {escrito arriba}".</p>
             <button type="submit" style="align-self:flex-start; background:#eb6834; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Registrar recurso de revisión</button>
           </form>
         @endif
@@ -354,11 +396,13 @@
         @endforelse
 
         @if (auth()->user()->hasPermission('actuaciones.aclaracion') && ! in_array($estadoClave, ['pendiente_validacion', 'finalizada', 'rechazada']))
-          <form method="POST" action="{{ route('admin.solicitudes.aclaracion', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
+          <form method="POST" action="{{ route('admin.solicitudes.aclaracion', $solicitud) }}" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
             @csrf
             <label style="font-size:12px; color:#898781;">Qué se necesita que el interesado aclare</label>
             <textarea name="motivo" rows="3" required placeholder="ej. Precisar el período y los programas de interés…"
                       style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px; font-family:inherit;"></textarea>
+            @include('admin.partials.enviar-correo-campos', ['label' => 'el PDF de la aclaración'])
+            <p style="font-size:11px; color:#898781; margin:0;">Asunto del correo: "Aclaración Solicitud No. {{ \App\Support\FormatoOficial::conComas($solicitud->contrasena) }}".</p>
             <button type="submit" style="align-self:flex-start; background:#fab219; color:#3a2f00; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Solicitar aclaración</button>
           </form>
         @endif
@@ -417,7 +461,7 @@
           <form method="POST" action="{{ route('admin.solicitudes.documentos.store', $solicitud) }}" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
             @csrf
             <label style="font-size:12px; color:#898781;">Archivo (PDF, Word, Excel o foto — máx. 10 MB)</label>
-            <input type="file" name="archivo" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" required
+            <input type="file" name="archivo" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png" required
                    style="padding:6px 0; font-size:13px;">
             <label style="font-size:12px; color:#898781;">Nombre a mostrar (opcional)</label>
             <input name="nombre" placeholder="ej. Resolución de respuesta"

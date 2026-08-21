@@ -4,6 +4,8 @@ use App\Http\Controllers\Admin\ActuacionController;
 use App\Http\Controllers\Admin\ConfiguracionController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DocumentoController;
+use App\Http\Controllers\Admin\EnlaceAdminController;
+use App\Http\Controllers\Admin\EnlaceController;
 use App\Http\Controllers\Admin\ReporteController;
 use App\Http\Controllers\Admin\SolicitudActionController;
 use App\Http\Controllers\Admin\SolicitudController;
@@ -66,6 +68,19 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
         Route::post('/{usuario}/estado', [UsuarioController::class, 'toggleEstado'])->name('estado');
     });
 
+    // Gestión de enlaces (Fase 22): administra los contactos de dependencia
+    // (Enlace) y, por separado, su acceso de inicio de sesión — mismo
+    // permiso que Usuarios, porque crear un acceso de enlace es, en el
+    // fondo, crear una cuenta de usuario.
+    Route::middleware('permission:usuarios.gestionar')->prefix('enlaces')->name('enlaces.')->group(function () {
+        Route::get('/', [EnlaceAdminController::class, 'index'])->name('index');
+        Route::get('/crear', [EnlaceAdminController::class, 'create'])->name('create');
+        Route::post('/', [EnlaceAdminController::class, 'store'])->name('store');
+        Route::get('/{enlace}/editar', [EnlaceAdminController::class, 'edit'])->name('edit');
+        Route::post('/{enlace}', [EnlaceAdminController::class, 'update'])->name('update');
+        Route::post('/{enlace}/acceso', [EnlaceAdminController::class, 'crearAcceso'])->name('acceso');
+    });
+
     // --- Solicitudes (Fase 6: recepción y validación administrativa) ---
     // OJO con el orden: "/solicitudes/nueva" debe registrarse ANTES que
     // "/solicitudes/{solicitud}" — si no, Laravel intenta enlazar "nueva"
@@ -105,6 +120,10 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
         ->middleware('permission:solicitudes.ajustar_vencimiento')
         ->name('solicitudes.vencimiento');
 
+    Route::post('/solicitudes/{solicitud}/correo', [SolicitudActionController::class, 'enviarCorreo'])
+        ->middleware('permission:correos.enviar')
+        ->name('solicitudes.correo');
+
     // --- Actuaciones (Fase 9: prórroga, aclaración, ampliación, recurso) ---
     Route::post('/solicitudes/{solicitud}/prorroga', [ActuacionController::class, 'crearProrroga'])
         ->middleware('permission:actuaciones.prorroga')
@@ -128,12 +147,22 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
         ->name('solicitudes.documentos.store');
 
     Route::get('/solicitudes/{solicitud}/documentos/{documento}/descargar', [DocumentoController::class, 'download'])
-        ->middleware('permission:solicitudes.ver')
+        ->middleware('permission:solicitudes.ver,enlace.ver_asignadas')
         ->name('solicitudes.documentos.descargar');
 
     Route::post('/solicitudes/{solicitud}/documentos/{documento}/publicar', [DocumentoController::class, 'publicar'])
         ->middleware('permission:documentos.publicar')
         ->name('solicitudes.documentos.publicar');
+
+    // --- Panel del enlace (Fase 20): el contacto de una dependencia entra
+    // con su misma cuenta pero solo ve/actúa sobre lo asignado a SU
+    // dependencia — ver EnlaceController para el alcance real (el
+    // middleware de permiso no puede expresar "solo lo mío"). ---
+    Route::middleware('permission:enlace.ver_asignadas')->prefix('enlace')->name('enlace.')->group(function () {
+        Route::get('/', [EnlaceController::class, 'index'])->name('index');
+        Route::get('/{solicitud}', [EnlaceController::class, 'show'])->name('show');
+        Route::post('/{solicitud}/observacion', [EnlaceController::class, 'guardarObservacion'])->name('observacion');
+    });
 
     // --- Reportes y exportación (permiso 'reportes.exportar') ---
     Route::middleware('permission:reportes.exportar')->prefix('reportes')->name('reportes.')->group(function () {

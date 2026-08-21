@@ -31,7 +31,7 @@ class PlantillaCorreoSeeder extends Seeder
             [
                 'clave' => 'aclaracion_solicitada',
                 'evento' => 'UIP solicita aclaración (plazo real: 2 días hábiles)',
-                'asunto_template' => 'Solicitud de aclaración - Contraseña No. {{contrasena}}',
+                'asunto_template' => 'Aclaración Solicitud No. {{contrasena}}',
                 'cuerpo_template' => "Estimado (a) Usuario (a):\n\nCon un atento saludo nos dirigimos a usted y de conformidad con la aclaración requerida por la Dependencia responsable del trámite de su solicitud, se fija un plazo de DOS DÍAS HÁBILES, para su pronunciamiento, con la observación que de no contar con el mismo al vencimiento del plazo, se emitirá la resolución que corresponda. Sin que esto implique, que se pueda presentar nuevamente la solicitud de información y requerir con claridad la información que es de su interés.\n\nSin otro particular, nos suscribimos de usted,\n\nAtentamente,\n\n" . self::FOOTER,
             ],
             [
@@ -43,7 +43,7 @@ class PlantillaCorreoSeeder extends Seeder
             [
                 'clave' => 'prorroga',
                 'evento' => 'Se registra prórroga (a más tardar el 8vo día hábil)',
-                'asunto_template' => 'Notificación de Prórroga - Contraseña No. {{contrasena}}',
+                'asunto_template' => 'Prórroga Solicitud {{contrasena}}',
                 'cuerpo_template' => "Señor(a)\n{{nombre}}\nPresente\n\nCon un atento saludo nos dirigimos a usted, con el objeto de remitirle resolución que contiene Solicitud de Prórroga, en virtud que esta Unidad, aún no cuenta con la información solicitada y al momento de disponer de la misma, de forma inmediata se le estará haciendo llegar por esta misma vía mediante resolución correspondiente, mucho apreciaríamos se sirva acusar recepción de la presente notificación.\n\n" . self::FOOTER,
             ],
             [
@@ -55,7 +55,7 @@ class PlantillaCorreoSeeder extends Seeder
             [
                 'clave' => 'recurso_recibido',
                 'evento' => 'Ciudadano presenta Recurso de Revisión (correlativo propio)',
-                'asunto_template' => 'Acuse de recibo - Recurso de Revisión No. {{correlativo_recurso}}',
+                'asunto_template' => 'Recurso Revisión No. {{correlativo_recurso}}',
                 'cuerpo_template' => "Estimado (a) Usuario (a):\n\nCon un atento saludo nos dirigimos a usted, con el objeto de acusar recepción del Recurso de Revisión interpuesto por su persona y de conformidad con lo dispuesto en la Ley de Acceso a la Información Pública y el Manual de Procedimientos, se ha registrado como Recurso de Revisión No. {{correlativo_recurso}}, por lo que, de forma inmediata, se están acompañando los antecedentes y remitiendo para el trámite correspondiente.\n\nSin otro particular, nos suscribimos de usted,\n\nAtentamente,\n\n" . self::FOOTER,
             ],
             [
@@ -66,8 +66,8 @@ class PlantillaCorreoSeeder extends Seeder
             ],
             [
                 'clave' => 'resolucion_respuesta',
-                'evento' => 'Se notifica la resolución/respuesta final',
-                'asunto_template' => 'Notificación de respuesta - Contraseña No. {{contrasena}}',
+                'evento' => 'Se notifica la resolución/respuesta final (panel de notificación de resolución, Fase 22)',
+                'asunto_template' => 'RESPUESTA SOLICITUD No. {{contrasena}}',
                 'cuerpo_template' => "Señor(a)\n{{nombre}}\nPresente\n\nCon un atento saludo nos dirigimos a usted, con el objeto de remitirle resolución que contiene respuesta a su solicitud de información, mucho apreciaríamos, se sirva acusar recepción de la presente notificación.\n\nSin otro particular, nos suscribimos de usted,\n\nAtentamente,\n\n" . self::FOOTER,
             ],
             [

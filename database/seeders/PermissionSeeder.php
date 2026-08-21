@@ -35,6 +35,7 @@ class PermissionSeeder extends Seeder
             'reportes.exportar' => 'Exportar reportes/estadisticas a Excel',
             'usuarios.gestionar' => 'Crear/editar usuarios, roles y permisos',
             'configuracion.gestionar' => 'Editar configuracion general, plantillas y feriados',
+            'enlace.ver_asignadas' => 'Ver (solo lectura) las solicitudes asignadas a la propia dependencia, dejar observaciones y adjuntar documentos',
         ];
 
         foreach ($permisos as $clave => $nombre) {
@@ -51,7 +52,14 @@ class PermissionSeeder extends Seeder
                 'documentos.subir', 'documentos.publicar', 'correos.enviar', 'correos.ver',
             ],
             'Coordinador' => array_keys($permisos),
-            'Enlace' => ['solicitudes.ver', 'documentos.subir', 'correos.ver'],
+            // El rol "Enlace" es el contacto de una dependencia (Fase 20):
+            // NO recibe 'solicitudes.ver' (eso le mostraría TODOS los
+            // expedientes del sistema, de cualquier dependencia) — en vez
+            // de eso 'enlace.ver_asignadas' lo lleva a un panel propio
+            // (EnlaceController) que solo lista lo asignado a su propia
+            // dependencia. 'documentos.subir' sí se mantiene para que
+            // pueda adjuntar la respuesta desde ese mismo panel.
+            'Enlace' => ['enlace.ver_asignadas', 'documentos.subir', 'correos.ver'],
             'Consulta' => ['solicitudes.ver', 'correos.ver', 'reportes.exportar'],
         ];
 

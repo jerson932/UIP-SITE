@@ -37,8 +37,28 @@ class DocumentoController extends Controller
         ]);
     }
 
+    /**
+     * Un enlace (contacto de dependencia con cuenta propia, ver
+     * EnlaceController) solo puede subir/descargar documentos de
+     * expedientes asignados a SU dependencia — aunque tenga el permiso
+     * 'documentos.subir'/'solicitudes.ver' vía el rol "Enlace", esta ruta
+     * es compartida con el panel administrativo completo y no debe dejar
+     * que adivine el ID de un expediente de otra dependencia. Un
+     * administrador/coordinador normal no tiene registro "enlace" y no le
+     * aplica esta restricción.
+     */
+    private function abortSiFueraDeAlcanceDelEnlace(Solicitud $solicitud): void
+    {
+        $enlace = auth()->user()?->enlace;
+        if ($enlace && $solicitud->dependencia_id !== $enlace->dependencia_id) {
+            abort(403, 'Este expediente no está asignado a tu dependencia.');
+        }
+    }
+
     public function store(Request $request, Solicitud $solicitud): RedirectResponse
     {
+        $this->abortSiFueraDeAlcanceDelEnlace($solicitud);
+
         $data = $request->validate([
             'archivo' => ['required', 'file', 'mimes:'.implode(',', DocumentoIntakeService::MIMES), 'max:'.self::MAX_KB],
             'nombre' => ['nullable', 'string', 'max:255'],
@@ -99,6 +119,8 @@ class DocumentoController extends Controller
         if ($documento->solicitud_id !== $solicitud->id) {
             abort(404);
         }
+
+        $this->abortSiFueraDeAlcanceDelEnlace($solicitud);
 
         if (! Storage::disk('local')->exists($documento->ruta_archivo)) {
             abort(404, 'El archivo ya no está disponible en el servidor.');

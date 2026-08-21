@@ -22,6 +22,7 @@
     'alert' => '<path d="M12 3 2 20h20L12 3z"/><path d="M12 10v4"/><circle cx="12" cy="17" r=".2" fill="currentColor"/>',
     'calendar' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
     'file' => '<path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/>',
+    'link' => '<path d="M9 17H7a5 5 0 0 1 0-10h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><path d="M8 12h8"/>',
   ];
   $path = $paths[$name] ?? $paths['grid'];
 @endphp

@@ -20,7 +20,10 @@ class DocumentoIntakeService
 {
     public const MAX_KB = 10240; // 10 MB
 
-    public const MIMES = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png'];
+    // 'csv' se agregó en Fase 20 a pedido del usuario, para que los
+    // enlaces de dependencia puedan adjuntar hojas de datos sin tener que
+    // convertirlas a Excel primero.
+    public const MIMES = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'jpg', 'jpeg', 'png'];
 
     public function guardar(Solicitud $solicitud, ?UploadedFile $archivo, bool $subidoPorCiudadano, ?int $userId): ?Documento
     {

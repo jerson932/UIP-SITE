@@ -66,8 +66,7 @@
     </form>
     <footer>
       Unidad de Información Pública — Ministerio de Gobernación<br>
-      ¿Aún no tienes una solicitud? <a href="{{ route('solicitudes.nueva.form') }}">Presenta una aquí</a>.<br>
-      ¿Trabajas en la UIP? <a href="{{ route('login') }}">Ingresa al panel administrativo</a>.
+      ¿Aún no tienes una solicitud? <a href="{{ route('solicitudes.nueva.form') }}">Presenta una aquí</a>.
     </footer>
   </div>
 </body>

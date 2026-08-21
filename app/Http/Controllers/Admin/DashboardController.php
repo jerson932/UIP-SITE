@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Solicitud;
 use App\Models\SolicitudEstado;
 use App\Models\SolicitudHistorial;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -17,9 +18,17 @@ use Illuminate\View\View;
 // para el mismo concepto.
 class DashboardController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $user = $request->user();
+
+        // Un enlace de dependencia (Fase 20) no tiene 'solicitudes.ver' —
+        // este dashboard general muestra números de TODO el sistema, que
+        // no le corresponden. En vez de un dashboard vacío/con error, lo
+        // mandamos directo a su propio panel (EnlaceController).
+        if (! $user->hasPermission('solicitudes.ver') && $user->hasPermission('enlace.ver_asignadas')) {
+            return redirect()->route('admin.enlace.index');
+        }
 
         $porEstado = SolicitudEstado::withCount('solicitudes')
             ->orderBy('orden')

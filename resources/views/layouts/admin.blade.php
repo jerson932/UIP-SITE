@@ -151,6 +151,16 @@
         </div>
       @endif
 
+      @if ($navUser?->hasPermission('enlace.ver_asignadas'))
+        <div class="nav-section">
+          <div class="nav-section-label">Enlace</div>
+          <a href="{{ route('admin.enlace.index') }}" class="nav-link @if (request()->routeIs('admin.enlace.*')) is-active @endif">
+            @include('admin.partials.icon', ['name' => 'list'])
+            Solicitudes asignadas
+          </a>
+        </div>
+      @endif
+
       @if ($navUser?->hasPermission('reportes.exportar') || $navUser?->hasPermission('usuarios.gestionar') || $navUser?->hasPermission('configuracion.gestionar'))
         <div class="nav-section">
           <div class="nav-section-label">Administración</div>
@@ -164,6 +174,10 @@
             <a href="{{ route('admin.usuarios.index') }}" class="nav-link @if (request()->routeIs('admin.usuarios.*')) is-active @endif">
               @include('admin.partials.icon', ['name' => 'users'])
               Usuarios y permisos
+            </a>
+            <a href="{{ route('admin.enlaces.index') }}" class="nav-link @if (request()->routeIs('admin.enlaces.*')) is-active @endif">
+              @include('admin.partials.icon', ['name' => 'link'])
+              Gestión de enlaces
             </a>
           @endif
           @if ($navUser?->hasPermission('configuracion.gestionar'))

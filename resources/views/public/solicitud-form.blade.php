@@ -120,7 +120,7 @@
 
       <div class="campo">
         <label for="documento">Adjuntar un documento (opcional)</label>
-        <input id="documento" type="file" name="documento" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
+        <input id="documento" type="file" name="documento" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png">
         <p class="nota">PDF, Word, Excel o foto — máximo 10 MB.</p>
       </div>
 

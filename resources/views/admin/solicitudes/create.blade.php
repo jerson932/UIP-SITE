@@ -88,7 +88,7 @@
 
       <div>
         <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">Adjuntar un documento (opcional)</label>
-        <input type="file" name="documento" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+        <input type="file" name="documento" accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png"
                style="width:100%; padding:8px 0; font-size:13px;">
         <p style="font-size:11.5px; color:#898781; margin:4px 0 0;">PDF, Word, Excel o foto — máximo 10 MB.</p>
       </div>

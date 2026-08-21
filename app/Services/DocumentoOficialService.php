@@ -6,6 +6,7 @@ use App\Models\Dependencia;
 use App\Models\Documento;
 use App\Models\PlantillaDocumento;
 use App\Models\Solicitud;
+use App\Support\FormatoOficial;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PhpOffice\PhpWord\TemplateProcessor;
@@ -78,13 +79,18 @@ class DocumentoOficialService
             throw new \RuntimeException("No se encontró el archivo de plantilla en {$rutaPlantilla}.");
         }
 
-        // RC y FOLIO son del expediente (se reutilizan si ya se habían
-        // ingresado en una generación anterior); no_oficio/no_providencia
-        // son propios de ESTE documento.
+        // RC se reutiliza/actualiza en cada generación (puede variar según
+        // a quién se traslada). FOLIO, en cambio, solo se asigna UNA vez —
+        // en el primer oficio o primera providencia del expediente — y ya
+        // no cambia después aunque el formulario mande otro valor: así lo
+        // pidió el usuario ("el folio solo se asigna al primer oficio o
+        // primera providencia"). Ver también el input de folio en
+        // solicitudes/show.blade.php, que se bloquea en la vista una vez
+        // que ya hay uno guardado.
         if (array_key_exists('rc', $datos) && $datos['rc'] !== null && $datos['rc'] !== '') {
             $solicitud->rc = $datos['rc'];
         }
-        if (array_key_exists('folio', $datos) && $datos['folio'] !== null && $datos['folio'] !== '') {
+        if (! $solicitud->folio && array_key_exists('folio', $datos) && $datos['folio'] !== null && $datos['folio'] !== '') {
             $solicitud->folio = $datos['folio'];
         }
         if ($solicitud->isDirty(['rc', 'folio'])) {
@@ -95,14 +101,14 @@ class DocumentoOficialService
         $noProvidencia = $tipo === 'providencia' ? ($datos['no_providencia'] ?? null) : null;
 
         $tp = new TemplateProcessor($rutaPlantilla);
-        $tp->setValue('no_solicitud', $this->texto($solicitud->contrasena));
+        $tp->setValue('no_solicitud', FormatoOficial::conComas($solicitud->contrasena));
         $tp->setValue('rc', $this->texto($solicitud->rc));
         $tp->setValue('folio', $this->texto($solicitud->folio));
         $tp->setValue('interesado', $this->texto($solicitud->solicitante?->nombre));
         $tp->setValue('descripcion', $this->texto($solicitud->asunto));
         $tp->setValue('dependencia', $this->texto($dependencia->nombre));
-        $tp->setValue('no_oficio', $this->texto($noOficio));
-        $tp->setValue('no_providencia', $this->texto($noProvidencia));
+        $tp->setValue('no_oficio', FormatoOficial::conComas($noOficio));
+        $tp->setValue('no_providencia', FormatoOficial::conComas($noProvidencia));
         $tp->setValue('titulo_numero', $this->tituloNumero($tipo, $noOficio, $noProvidencia));
         $tp->setValue('fecha_genera', $this->fechaGenera($tipo));
 
@@ -138,36 +144,88 @@ class DocumentoOficialService
     private function tituloNumero(string $tipo, ?string $noOficio, ?string $noProvidencia): string
     {
         if ($tipo === 'oficio' && $noOficio) {
-            return 'OFICIO No: '.$noOficio;
+            return 'OFICIO No: '.FormatoOficial::conComas($noOficio);
         }
 
         if ($tipo === 'providencia' && $noProvidencia) {
-            return 'PROVIDENCIA '.$noProvidencia;
+            return 'PROVIDENCIA '.FormatoOficial::conComas($noProvidencia);
         }
 
         return '';
     }
 
     /**
-     * Fecha en el formato que ya trae cada plantilla: los oficios llevan la
-     * línea "${fecha_genera}" sola (necesita el prefijo "Guatemala, "), las
+     * Fecha completamente en letras ("veintiuno de agosto de dos mil
+     * veintiséis"), como se pidió. Los oficios llevan la línea
+     * "${fecha_genera}" sola (necesita el prefijo "Guatemala, "), las
      * providencias ya traen "GUATEMALA, ${fecha_genera}." impreso (no debe
      * repetirse el prefijo). Ambos casos van en mayúsculas.
-     *
-     * Nota: se usa día y año en número + mes en letras ("21 de agosto de
-     * 2026") en vez de la fecha completa en letras — no tuvimos forma de
-     * confirmar el formato exacto de tu helper fechaActualLetras2() actual.
-     * Si necesitas el año/día también en letras, avísame y lo ajustamos.
      */
     private function fechaGenera(string $tipo): string
     {
         $hoy = now();
-        $base = $hoy->day.' de '.self::MESES[(int) $hoy->format('n')].' de '.$hoy->year;
+        $base = $this->numeroEnLetras($hoy->day).' de '.self::MESES[(int) $hoy->format('n')].' de '.$this->numeroEnLetras($hoy->year);
 
         if ($tipo === 'oficio') {
             return mb_strtoupper('Guatemala, '.$base, 'UTF-8');
         }
 
         return mb_strtoupper($base, 'UTF-8');
+    }
+
+    /**
+     * Convierte un entero (0-999,999) a su forma en letras en español,
+     * suficiente para el día ("veintiuno") y el año ("dos mil veintiséis")
+     * de fecha_genera. No es un conversor de propósito general — cubre
+     * exactamente los rangos que puede necesitar una fecha.
+     */
+    private function numeroEnLetras(int $n): string
+    {
+        if ($n < 0) {
+            return 'menos '.$this->numeroEnLetras(-$n);
+        }
+
+        $unidades = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
+        $especiales = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'];
+        $veintis = ['veinte', 'veintiuno', 'veintidós', 'veintitrés', 'veinticuatro', 'veinticinco', 'veintiséis', 'veintisiete', 'veintiocho', 'veintinueve'];
+        $decenas = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+        $centenas = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
+
+        if ($n === 0) {
+            return 'cero';
+        }
+        if ($n < 10) {
+            return $unidades[$n];
+        }
+        if ($n < 20) {
+            return $especiales[$n - 10];
+        }
+        if ($n < 30) {
+            return $veintis[$n - 20];
+        }
+        if ($n < 100) {
+            $d = intdiv($n, 10);
+            $u = $n % 10;
+
+            return $u === 0 ? $decenas[$d] : $decenas[$d].' y '.$unidades[$u];
+        }
+        if ($n === 100) {
+            return 'cien';
+        }
+        if ($n < 1000) {
+            $c = intdiv($n, 100);
+            $resto = $n % 100;
+
+            return $resto === 0 ? $centenas[$c] : $centenas[$c].' '.$this->numeroEnLetras($resto);
+        }
+        if ($n < 1000000) {
+            $miles = intdiv($n, 1000);
+            $resto = $n % 1000;
+            $prefijo = $miles === 1 ? 'mil' : $this->numeroEnLetras($miles).' mil';
+
+            return $resto === 0 ? $prefijo : $prefijo.' '.$this->numeroEnLetras($resto);
+        }
+
+        return (string) $n;
     }
 }

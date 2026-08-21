@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Dependencia;
+use App\Models\Enlace;
 use App\Models\Rol;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -41,7 +42,7 @@ class UserSeeder extends Seeder
             ]
         );
 
-        User::updateOrCreate(
+        $enlaceUser = User::updateOrCreate(
             ['email' => 'enlace.planificacion@mingob.gob.gt'],
             [
                 'name' => 'Enlace Planificación (demo)',
@@ -52,5 +53,15 @@ class UserSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
+
+        // Vincula este usuario de demo con el registro Enlace de PLANIF que
+        // ya sembró DependenciaSeeder ("Lic. Marta Solís") — sin esto,
+        // tener el rol "Enlace" no alcanza para entrar al panel del enlace
+        // (Fase 20, EnlaceController), porque este lee la dependencia a
+        // través de User::enlace() (la relación por user_id), no de
+        // users.dependencia_id directamente.
+        if ($planif) {
+            Enlace::where('dependencia_id', $planif->id)->whereNull('user_id')->first()?->update(['user_id' => $enlaceUser->id]);
+        }
     }
 }
