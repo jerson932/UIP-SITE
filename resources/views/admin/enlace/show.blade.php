@@ -53,14 +53,14 @@
       </div>
 
       <div class="card">
-        <h4 style="margin:0 0 10px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">Todos los documentos del expediente</h4>
-        @forelse ($solicitud->documentos as $doc)
+        <h4 style="margin:0 0 10px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">Archivos que has cargado</h4>
+        @forelse ($documentosPropios as $doc)
           <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0efec; padding:7px 0; font-size:12.5px; gap:8px;">
             <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ $doc->nombre }}</div>
             <a href="{{ route('admin.solicitudes.documentos.descargar', [$solicitud, $doc]) }}" style="color:#2a78d6; text-decoration:none; flex:0 0 auto;">Descargar</a>
           </div>
         @empty
-          <p style="font-size:13px; color:#898781; margin:0;">Todavía no hay documentos.</p>
+          <p style="font-size:13px; color:#898781; margin:0;">Todavía no has cargado ningún archivo en este expediente.</p>
         @endforelse
       </div>
     </div>

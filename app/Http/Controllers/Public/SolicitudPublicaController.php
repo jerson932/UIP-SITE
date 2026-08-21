@@ -37,6 +37,7 @@ class SolicitudPublicaController extends Controller
             'departamentos' => CatalogosSolicitud::DEPARTAMENTOS,
             'generos' => CatalogosSolicitud::GENEROS,
             'rangosEdad' => CatalogosSolicitud::RANGOS_EDAD,
+            'paises' => CatalogosSolicitud::PAISES,
         ]);
     }
 
@@ -58,6 +59,7 @@ class SolicitudPublicaController extends Controller
             'telefono' => ['nullable', 'string', 'max:50'],
             'genero' => ['nullable', 'string', 'in:'.implode(',', CatalogosSolicitud::GENEROS)],
             'rango_edad' => ['nullable', 'string', 'in:'.implode(',', CatalogosSolicitud::RANGOS_EDAD)],
+            'pais' => ['required', 'string', 'in:'.implode(',', CatalogosSolicitud::PAISES)],
             'departamento' => ['nullable', 'string', 'in:'.implode(',', CatalogosSolicitud::DEPARTAMENTOS)],
             'asunto' => ['required', 'string', 'min:10', 'max:5000'],
             'documento' => ['nullable', 'file', 'mimes:'.implode(',', DocumentoIntakeService::MIMES), 'max:'.DocumentoIntakeService::MAX_KB],
@@ -72,7 +74,7 @@ class SolicitudPublicaController extends Controller
                 'telefono' => $data['telefono'] ?? null,
                 'genero' => $data['genero'] ?? null,
                 'rango_edad' => $data['rango_edad'] ?? null,
-                'pais' => 'Guatemala',
+                'pais' => $data['pais'],
                 'departamento' => $data['departamento'] ?? null,
             ]);
 
@@ -110,6 +112,12 @@ class SolicitudPublicaController extends Controller
         RateLimiter::hit($throttleKey, 3600);
 
         $correo = $this->notificaciones->enviar($solicitud, 'solicitud_registrada', [], null);
+
+        // Aviso interno a la UIP (Fase 22b): "necesito que cuando llenen
+        // el formulario, ese formulario me llege al correo" — se envía a
+        // la dirección fija configurable en Configuración ("correo_uip"),
+        // por separado del acuse de recibo que recibe el ciudadano arriba.
+        $this->notificaciones->notificarNuevaSolicitudInterna($solicitud);
 
         return view('public.solicitud-confirmacion', [
             'solicitud' => $solicitud,

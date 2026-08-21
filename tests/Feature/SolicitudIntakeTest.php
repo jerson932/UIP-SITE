@@ -67,6 +67,7 @@ class SolicitudIntakeTest extends TestCase
             'telefono' => '5555-1234',
             'genero' => 'Femenino',
             'rango_edad' => '26-35',
+            'pais' => 'Guatemala',
             'departamento' => 'Guatemala',
             'asunto' => 'Solicito el presupuesto ejecutado del año 2025.',
         ]);
@@ -108,6 +109,7 @@ class SolicitudIntakeTest extends TestCase
         $this->post('/solicitudes/nueva', [
             'nombre' => 'Nombre Nuevo',
             'correo' => 'repetido@example.com',
+            'pais' => 'Guatemala',
             'asunto' => 'Solicito copia del contrato de mantenimiento vehicular.',
         ]);
 
@@ -126,6 +128,7 @@ class SolicitudIntakeTest extends TestCase
             $this->post('/solicitudes/nueva', [
                 'nombre' => "Persona {$i}",
                 'correo' => "persona{$i}@example.com",
+                'pais' => 'Guatemala',
                 'asunto' => 'Solicito información pública de prueba número '.$i.'.',
             ]);
         }
@@ -133,6 +136,7 @@ class SolicitudIntakeTest extends TestCase
         $response = $this->post('/solicitudes/nueva', [
             'nombre' => 'Persona extra',
             'correo' => 'extra@example.com',
+            'pais' => 'Guatemala',
             'asunto' => 'Esta solicitud debería quedar bloqueada por el límite de envíos.',
         ]);
 
@@ -154,6 +158,7 @@ class SolicitudIntakeTest extends TestCase
         $response = $this->post('/solicitudes/nueva', [
             'nombre' => 'Ana Gómez',
             'correo' => 'ana@example.com',
+            'pais' => 'Guatemala',
             'asunto' => 'Solicito el listado de contratos vigentes de este año.',
             'documento' => $archivo,
         ]);
@@ -185,6 +190,7 @@ class SolicitudIntakeTest extends TestCase
         $response = $this->post('/solicitudes/nueva', [
             'nombre' => 'Sin Adjunto',
             'correo' => 'sinadjunto@example.com',
+            'pais' => 'Guatemala',
             'asunto' => 'Solicitud de prueba que no adjunta ningún documento.',
         ]);
 
@@ -285,6 +291,7 @@ class SolicitudIntakeTest extends TestCase
             $this->post('/solicitudes/nueva', [
                 'nombre' => "Persona {$i}",
                 'correo' => "unico{$i}@example.com",
+                'pais' => 'Guatemala',
                 'asunto' => 'Solicitud de prueba para verificar unicidad de código '.$i.'.',
             ]);
         }

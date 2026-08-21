@@ -43,6 +43,16 @@ Route::prefix('seguimiento')->name('ciudadano.')->group(function () {
     Route::get('/documentos/{documento}/descargar', [SeguimientoController::class, 'descargarDocumento'])
         ->middleware('signed')
         ->name('documentos.descargar');
+
+    // Fase 22b: el ciudadano puede pedir un recurso de revisión o una
+    // ampliación él mismo desde su propio portal de seguimiento (con su
+    // código de acceso, sin iniciar sesión) — "el ciudadano puede poner si
+    // quiere un recurso o una ampliacion desde su seguimiento". Ambas
+    // acciones re-vuelven a renderizar la misma página de resultado
+    // (nunca un redirect a una URL con el id numérico) para respetar el
+    // mismo modelo de seguridad "sin sesión" que consultar().
+    Route::post('/recurso', [SeguimientoController::class, 'solicitarRecurso'])->name('recurso.solicitar');
+    Route::post('/ampliacion', [SeguimientoController::class, 'solicitarAmpliacion'])->name('ampliacion.solicitar');
 });
 
 // --- Formulario público de presentación de solicitudes: el otro punto de
@@ -141,6 +151,17 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
         ->middleware('permission:actuaciones.recurso')
         ->name('solicitudes.recurso');
 
+    // Fase 22b: cuando el propio ciudadano presenta un recurso de revisión
+    // desde su portal de seguimiento (ver rutas "ciudadano.*" más arriba),
+    // el recurso se crea SIN correlativo (todavía no lo tiene) — este es el
+    // paso donde la UIP se lo asigna manualmente, igual que el resto de
+    // números "oficiales" del sistema. Al asignarlo se dispara el mismo
+    // correo "recurso_recibido" que ya recibía un recurso creado por un
+    // administrador.
+    Route::post('/solicitudes/{solicitud}/recurso/{recurso}/correlativo', [ActuacionController::class, 'asignarCorrelativoRecurso'])
+        ->middleware('permission:actuaciones.recurso')
+        ->name('solicitudes.recurso.correlativo');
+
     // --- Documentos (Fase 10: carga y publicación al ciudadano) ---
     Route::post('/solicitudes/{solicitud}/documentos', [DocumentoController::class, 'store'])
         ->middleware('permission:documentos.subir')
@@ -177,5 +198,6 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
         Route::post('/plantillas/{plantilla}', [ConfiguracionController::class, 'actualizarPlantilla'])->name('plantillas.actualizar');
         Route::post('/feriados', [ConfiguracionController::class, 'guardarFeriado'])->name('feriados.guardar');
         Route::post('/feriados/{feriado}/eliminar', [ConfiguracionController::class, 'eliminarFeriado'])->name('feriados.eliminar');
+        Route::post('/correo-uip', [ConfiguracionController::class, 'actualizarCorreoUip'])->name('correo_uip.actualizar');
     });
 });

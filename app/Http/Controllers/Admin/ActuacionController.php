@@ -75,7 +75,7 @@ class ActuacionController extends Controller
         ];
     }
 
-    private function historial(Solicitud $solicitud, string $texto, ?int $estadoAnteriorId = null, ?int $estadoNuevoId = null): void
+    private function historial(Solicitud $solicitud, string $texto, ?int $estadoAnteriorId = null, ?int $estadoNuevoId = null, bool $visibleCiudadano = true): void
     {
         SolicitudHistorial::create([
             'solicitud_id' => $solicitud->id,
@@ -84,6 +84,7 @@ class ActuacionController extends Controller
             'descripcion' => $texto,
             'estado_anterior_id' => $estadoAnteriorId,
             'estado_nuevo_id' => $estadoNuevoId,
+            'visible_ciudadano' => $visibleCiudadano,
         ]);
     }
 
@@ -215,40 +216,50 @@ class ActuacionController extends Controller
     {
         $data = $request->validate([
             'descripcion' => ['required', 'string', 'max:2000'],
+            'documento' => ['nullable', 'file', 'mimes:pdf', 'max:'.DocumentoIntakeService::MAX_KB],
         ]);
 
         $finalizada = $solicitud->estado?->clave === 'finalizada';
         $estado = $finalizada ? 'rechazada_no_regulada' : 'recibida';
 
         $this->registrarActuacion($solicitud, 'ampliacion', $data['descripcion']);
+        $documento = $this->adjuntarDocumento($solicitud, $request, 'documento');
 
         Ampliacion::create([
             'solicitud_id' => $solicitud->id,
+            'documento_id' => $documento?->id,
             'fecha_solicitud' => now()->toDateString(),
             'descripcion' => $data['descripcion'],
             'estado' => $estado,
         ]);
 
-        // Solo existe plantilla de correo (validada contra los correos
-        // reales de la UIP) para el caso "no regulada" — una ampliación
-        // sobre un expediente todavía en trámite no dispara notificación
-        // automática, se resuelve como parte del seguimiento normal.
-        $correo = $finalizada
-            ? $this->notificaciones->enviar($solicitud, 'ampliacion_no_procedente', [], auth()->id())
+        // Antes de Fase 22b solo existía plantilla de correo (validada
+        // contra los correos reales de la UIP) para el caso "no
+        // regulada" — una ampliación sobre un expediente todavía en
+        // trámite no disparaba notificación automática. El usuario pidió
+        // poder adjuntar PDF y enviar correo también en ese caso, igual
+        // que en Prórroga/Aclaración/Recurso de Revisión, así que se
+        // agregó la plantilla "ampliacion_recibida" para ese escenario y
+        // el mismo checkbox "enviar_correo" (por defecto marcado).
+        $enviarCorreo = $request->boolean('enviar_correo', true);
+        $plantilla = $finalizada ? 'ampliacion_no_procedente' : 'ampliacion_recibida';
+        $correo = $enviarCorreo
+            ? $this->notificaciones->enviar($solicitud, $plantilla, [], auth()->id(), $this->adjuntoParaCorreo($documento))
             : null;
 
         $this->historial(
             $solicitud,
-            $finalizada
+            ($finalizada
                 ? 'Ampliación recibida después de la resolución: no está regulada por la Ley de Acceso a la Información Pública. Se indicó al interesado presentar una solicitud nueva.'
-                : 'Ampliación registrada: '.$data['descripcion']
+                : 'Ampliación registrada: '.$data['descripcion'])
+            .($documento ? " Documento adjunto: {$documento->nombre}." : '')
         );
+
+        $mensajeCorreo = $enviarCorreo ? $this->notificaciones->describirResultado($correo) : 'No se envió correo (opción desmarcada).';
 
         return back()->with(
             'status',
-            $finalizada
-                ? 'Ampliación registrada como no regulada (el expediente ya está finalizado). '.$this->notificaciones->describirResultado($correo)
-                : 'Ampliación registrada.'
+            ($finalizada ? 'Ampliación registrada como no regulada (el expediente ya está finalizado). ' : 'Ampliación registrada. ').$mensajeCorreo
         );
     }
 
@@ -301,5 +312,49 @@ class ActuacionController extends Controller
         $mensajeCorreo = $enviarCorreo ? $this->notificaciones->describirResultado($correo) : 'No se envió correo (opción desmarcada).';
 
         return back()->with('status', 'Recurso de revisión registrado. '.$mensajeCorreo);
+    }
+
+    /**
+     * Fase 22b: cuando el propio ciudadano presenta un recurso de revisión
+     * desde su portal de seguimiento (SeguimientoController::
+     * solicitarRecurso()), el recurso se crea sin correlativo — este es el
+     * paso donde la UIP se lo asigna manualmente. Al asignarlo se dispara
+     * el mismo correo "recurso_recibido" que ya recibía un recurso creado
+     * directamente por un administrador.
+     */
+    public function asignarCorrelativoRecurso(Request $request, Solicitud $solicitud, RecursoRevision $recurso): RedirectResponse
+    {
+        if ($recurso->solicitud_id !== $solicitud->id) {
+            abort(404);
+        }
+
+        if ($recurso->correlativo) {
+            return back()->with('error', 'Este recurso de revisión ya tiene un correlativo asignado.');
+        }
+
+        $data = $request->validate([
+            'correlativo' => ['required', 'string', 'max:255', 'unique:recursos_revision,correlativo'],
+            'fecha_vencimiento' => ['nullable', 'date', 'after_or_equal:today'],
+        ], [
+            'correlativo.unique' => 'Ese correlativo ya está asignado a otro recurso de revisión.',
+        ]);
+
+        $recurso->update([
+            'correlativo' => $data['correlativo'],
+            'fecha_vencimiento' => $data['fecha_vencimiento'] ?? $recurso->fecha_vencimiento,
+        ]);
+
+        $this->cambiarEstado($solicitud, 'recurso_revision');
+
+        $correo = $this->notificaciones->enviar($solicitud, 'recurso_recibido', [
+            'correlativo_recurso' => $data['correlativo'],
+        ], auth()->id());
+
+        $this->historial(
+            $solicitud,
+            "Recurso de revisión No. {$data['correlativo']} — correlativo asignado por la UIP (recurso presentado por el interesado desde su portal de seguimiento)."
+        );
+
+        return back()->with('status', 'Correlativo asignado. '.$this->notificaciones->describirResultado($correo));
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Configuracion;
 use App\Models\Feriado;
 use App\Models\Log;
 use App\Models\PlantillaCorreo;
@@ -34,7 +35,28 @@ class ConfiguracionController extends Controller
         return view('admin.configuracion.index', [
             'plantillas' => PlantillaCorreo::orderBy('evento')->get(),
             'feriados' => Feriado::orderBy('fecha')->get(),
+            'correoUip' => Configuracion::where('clave', 'correo_uip')->value('valor'),
         ]);
+    }
+
+    // Correo que recibe el aviso interno de "nueva solicitud" (Fase 22b) —
+    // reutiliza la clave "correo_uip" ya sembrada (Correo institucional de
+    // la UIP) en vez de agregar una tabla/pantalla nueva de configuración
+    // genérica clave-valor, que hoy no existe en este panel.
+    public function actualizarCorreoUip(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'correo_uip' => ['required', 'email', 'max:255'],
+        ]);
+
+        Configuracion::updateOrCreate(
+            ['clave' => 'correo_uip'],
+            ['valor' => $data['correo_uip'], 'descripcion' => 'Correo institucional de la UIP']
+        );
+
+        $this->log('configuracion.correo_uip_actualizado', 'configuracion', null, ['valor' => $data['correo_uip']]);
+
+        return redirect()->route('admin.configuracion.index')->with('status', 'Correo de avisos internos actualizado.');
     }
 
     public function editarPlantilla(PlantillaCorreo $plantilla): View

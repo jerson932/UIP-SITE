@@ -27,4 +27,20 @@ class CatalogosSolicitud
         'fisica' => 'Física',
         'correo' => 'Correo',
     ];
+
+    // País del solicitante (Fase 22b, a pedido del usuario: "agrega pais").
+    // 'Guatemala' va primero porque es, por lejos, el valor más común y es
+    // el que el controlador usaba fijo antes de este campo existir — así
+    // el formulario sigue mostrando "Guatemala" primero por defecto.
+    public const PAISES = [
+        'Guatemala',
+        'Belice', 'Costa Rica', 'El Salvador', 'Honduras', 'Nicaragua', 'Panamá',
+        'México',
+        'Argentina', 'Bolivia', 'Brasil', 'Chile', 'Colombia', 'Cuba', 'Ecuador',
+        'Estados Unidos', 'Paraguay', 'Perú', 'Puerto Rico', 'República Dominicana',
+        'Uruguay', 'Venezuela',
+        'Canadá', 'España',
+        'Alemania', 'Francia', 'Italia', 'Reino Unido',
+        'Otro',
+    ];
 }

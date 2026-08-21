@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Mail\PlantillaCorreoMail;
+use App\Models\Configuracion;
 use App\Models\CorreoAdjunto;
 use App\Models\CorreoEnviado;
 use App\Models\PlantillaCorreo;
@@ -113,6 +114,35 @@ class NotificacionService
         }
 
         return $correo->fresh();
+    }
+
+    /**
+     * Aviso interno a la propia UIP cuando un ciudadano presenta una
+     * solicitud por el portal público (Fase 22b): "necesito que cuando
+     * llenen el formulario, ese formulario me llege al correo". Reutiliza
+     * la configuración ya sembrada "correo_uip" (Configuración > correo
+     * institucional) en vez de agregar una clave nueva — el usuario eligió
+     * "una dirección fija que yo configure" al preguntársele. No usa
+     * plantilla de "plantillas_correo" (esas son todas hacia el
+     * ciudadano); si no hay dirección configurada, simplemente no envía
+     * nada (no es un error, solo queda sin aviso interno).
+     */
+    public function notificarNuevaSolicitudInterna(Solicitud $solicitud): ?CorreoEnviado
+    {
+        $destinatario = Configuracion::where('clave', 'correo_uip')->value('valor');
+        if (! $destinatario) {
+            return null;
+        }
+
+        $asunto = "Nueva solicitud recibida por el portal - {$solicitud->codigo_ns}";
+        $cuerpo = "Se recibió una nueva solicitud de información pública a través del portal en línea.\n\n"
+            ."Código: {$solicitud->codigo_ns}\n"
+            ."Solicitante: {$solicitud->solicitante?->nombre}\n"
+            ."Correo del solicitante: {$solicitud->solicitante?->correo}\n"
+            ."Asunto: {$solicitud->asunto}\n\n"
+            ."Ingresa al panel administrativo para revisarla y darle trámite.";
+
+        return $this->enviarYRegistrar($solicitud, null, $destinatario, $asunto, $cuerpo, null, null);
     }
 
     /**

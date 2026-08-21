@@ -33,7 +33,11 @@ class SolicitudActionController extends Controller
     ) {
     }
 
-    private function historial(Solicitud $solicitud, string $texto, ?int $estadoAnteriorId = null, ?int $estadoNuevoId = null): void
+    // $visibleCiudadano: false marca entradas de deliberación interna (a
+    // qué dependencia/enlace se asignó el expediente, correos ad-hoc) que
+    // no deben aparecer en el portal público de seguimiento del ciudadano
+    // (Fase 22b) — ver SeguimientoController::consultar().
+    private function historial(Solicitud $solicitud, string $texto, ?int $estadoAnteriorId = null, ?int $estadoNuevoId = null, bool $visibleCiudadano = true): void
     {
         SolicitudHistorial::create([
             'solicitud_id' => $solicitud->id,
@@ -42,6 +46,7 @@ class SolicitudActionController extends Controller
             'descripcion' => $texto,
             'estado_anterior_id' => $estadoAnteriorId,
             'estado_nuevo_id' => $estadoNuevoId,
+            'visible_ciudadano' => $visibleCiudadano,
         ]);
     }
 
@@ -140,7 +145,8 @@ class SolicitudActionController extends Controller
 
         $this->historial(
             $solicitud,
-            "Asignada a {$dependencia->nombre}".($enlace ? ", enlace {$enlace->nombre}." : '.')
+            "Asignada a {$dependencia->nombre}".($enlace ? ", enlace {$enlace->nombre}." : '.'),
+            visibleCiudadano: false
         );
 
         // No hay una plantilla de correo sembrada para notificar al enlace
@@ -212,7 +218,8 @@ class SolicitudActionController extends Controller
         $this->historial(
             $solicitud,
             ($tipo === 'oficio' ? 'Oficio' : 'Providencia')." generado hacia {$dependencia->nombre}: {$documento->nombre}."
-            .($asignacionCambio ? " Expediente asignado automáticamente a {$dependencia->nombre}." : '')
+            .($asignacionCambio ? " Expediente asignado automáticamente a {$dependencia->nombre}." : ''),
+            visibleCiudadano: false
         );
 
         return back()->with('status', ucfirst($tipo).' generado. Puede descargarlo desde la pestaña "Documentos".');
@@ -303,7 +310,8 @@ class SolicitudActionController extends Controller
         $this->historial(
             $solicitud,
             "Correo enviado a {$data['destinatario']}: \"{$data['asunto']}\"."
-            .($documento ? " Documento adjunto: {$documento->nombre}." : '')
+            .($documento ? " Documento adjunto: {$documento->nombre}." : ''),
+            visibleCiudadano: false
         );
 
         return back()->with('status', 'Correo — '.$this->notificaciones->describirResultado($correo));

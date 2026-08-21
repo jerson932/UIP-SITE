@@ -103,14 +103,24 @@
         </div>
       </div>
 
-      <div class="campo">
-        <label for="departamento">Departamento (opcional)</label>
-        <select id="departamento" name="departamento">
-          <option value="">No indicar</option>
-          @foreach ($departamentos as $d)
-            <option value="{{ $d }}" @selected(old('departamento') === $d)>{{ $d }}</option>
-          @endforeach
-        </select>
+      <div class="fila">
+        <div class="campo">
+          <label for="pais">País</label>
+          <select id="pais" name="pais" required>
+            @foreach ($paises as $p)
+              <option value="{{ $p }}" @selected(old('pais', 'Guatemala') === $p)>{{ $p }}</option>
+            @endforeach
+          </select>
+        </div>
+        <div class="campo">
+          <label for="departamento">Departamento (opcional)</label>
+          <select id="departamento" name="departamento">
+            <option value="">No indicar</option>
+            @foreach ($departamentos as $d)
+              <option value="{{ $d }}" @selected(old('departamento') === $d)>{{ $d }}</option>
+            @endforeach
+          </select>
+        </div>
       </div>
 
       <div class="campo">
@@ -130,7 +140,6 @@
     <footer>
       Unidad de Información Pública — Ministerio de Gobernación<br>
       ¿Ya tienes una solicitud? <a href="{{ route('ciudadano.seguimiento.form') }}">Consulta su estado aquí</a>.
-      ¿Trabajas en la UIP? <a href="{{ route('login') }}">Ingresa al panel administrativo</a>.
     </footer>
   </div>
 </body>

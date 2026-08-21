@@ -3,8 +3,12 @@
 namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
+use App\Models\Actuacion;
+use App\Models\Ampliacion;
 use App\Models\Documento;
+use App\Models\RecursoRevision;
 use App\Models\Solicitud;
+use App\Models\SolicitudHistorial;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -27,6 +31,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 // vencimiento corto (URL::temporarySignedRoute), no por id directo.
 class SeguimientoController extends Controller
 {
+    public function __construct(private \App\Services\NotificacionService $notificaciones)
+    {
+    }
+
     public function form(): View
     {
         return view('public.seguimiento-form');
@@ -38,8 +46,21 @@ class SeguimientoController extends Controller
             'codigo_acceso' => ['required', 'string', 'max:255'],
         ]);
 
-        $throttleKey = 'seguimiento|'.$request->ip();
+        $solicitud = $this->buscarSolicitud($data['codigo_acceso'], 'seguimiento|'.$request->ip());
 
+        return $this->resultadoView($solicitud);
+    }
+
+    /**
+     * Localiza el expediente por código de acceso (sin exponer su id
+     * numérico), con el mismo throttling anti-fuerza-bruta y la misma
+     * comprobación de plazo vencido que ya usaba consultar() — factorizado
+     * para reutilizarlo también en solicitarRecurso()/solicitarAmpliacion()
+     * (Fase 22b), que reciben el código de acceso como campo oculto del
+     * formulario en vez de un id en la URL.
+     */
+    private function buscarSolicitud(string $codigoAccesoRaw, string $throttleKey): Solicitud
+    {
         if (RateLimiter::tooManyAttempts($throttleKey, 5)) {
             $seconds = RateLimiter::availableIn($throttleKey);
 
@@ -48,7 +69,7 @@ class SeguimientoController extends Controller
             ]);
         }
 
-        $codigo = mb_strtolower(trim($data['codigo_acceso']));
+        $codigo = mb_strtolower(trim($codigoAccesoRaw));
 
         $solicitud = Solicitud::whereRaw('LOWER(codigo_acceso) = ?', [$codigo])->first();
 
@@ -74,8 +95,26 @@ class SeguimientoController extends Controller
             ]);
         }
 
+        return $solicitud;
+    }
+
+    /**
+     * Vuelve a renderizar la página de resultado de un expediente ya
+     * localizado — usado tanto por consultar() como, desde Fase 22b, por
+     * las acciones de autoservicio del ciudadano (recurso/ampliación), que
+     * necesitan mostrar la misma página con un mensaje de confirmación o
+     * error en vez de redirigir a una URL que no existe (no hay una
+     * ruta GET individual por expediente: todo pasa por el código de
+     * acceso).
+     */
+    private function resultadoView(Solicitud $solicitud, ?string $status = null, ?string $error = null): View
+    {
         $solicitud->load(['estado', 'solicitud_historial' => function ($q) {
-            $q->orderBy('created_at');
+            // visible_ciudadano=false oculta deliberación interna (a qué
+            // dependencia/enlace se asignó el expediente, correos ad-hoc)
+            // que nunca se pensó exponer en este portal público — ver
+            // migración add_visible_ciudadano_to_solicitud_historial_table.
+            $q->where('visible_ciudadano', true)->orderBy('created_at');
         }]);
 
         $documentos = $solicitud->documentos()
@@ -96,7 +135,112 @@ class SeguimientoController extends Controller
             'solicitud' => $solicitud,
             'dias' => $solicitud->diasHabilesRestantes(),
             'documentos' => $documentos,
+            'status' => $status,
+            'error' => $error,
         ]);
+    }
+
+    /**
+     * Autoservicio (Fase 22b): el ciudadano presenta su propio recurso de
+     * revisión desde el portal de seguimiento, sin iniciar sesión — crea un
+     * RecursoRevision REAL (igual que si lo creara un administrador desde
+     * el panel), visible y accionable desde ahí. La única diferencia es
+     * que todavía no tiene número de correlativo: ese lo asigna la UIP
+     * manualmente (ver ActuacionController::asignarCorrelativoRecurso),
+     * igual que el resto de números "oficiales" del sistema.
+     */
+    public function solicitarRecurso(Request $request): View
+    {
+        $data = $request->validate([
+            'codigo_acceso' => ['required', 'string', 'max:255'],
+            'motivo' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $solicitud = $this->buscarSolicitud($data['codigo_acceso'], 'seguimiento_recurso|'.$request->ip());
+
+        if ($solicitud->estado?->clave === 'pendiente_validacion') {
+            return $this->resultadoView($solicitud, null, 'Tu solicitud todavía está en validación; espera a que la UIP la acepte antes de presentar un recurso de revisión.');
+        }
+
+        RateLimiter::hit('seguimiento_recurso_accion|'.$request->ip(), 3600);
+
+        Actuacion::create([
+            'solicitud_id' => $solicitud->id,
+            'tipo' => 'recurso_revision',
+            'iniciado_por' => 'ciudadano',
+            'fecha' => now()->toDateString(),
+            'descripcion' => $data['motivo'],
+        ]);
+
+        RecursoRevision::create([
+            'solicitud_id' => $solicitud->id,
+            'correlativo' => null,
+            'fecha_presentacion' => now()->toDateString(),
+            'motivo' => $data['motivo'],
+            'estado' => 'recibido',
+        ]);
+
+        SolicitudHistorial::create([
+            'solicitud_id' => $solicitud->id,
+            'tipo_actor' => 'ciudadano',
+            'descripcion' => 'El interesado presentó un recurso de revisión desde el portal de seguimiento. Pendiente de que la UIP le asigne el número de correlativo.',
+        ]);
+
+        return $this->resultadoView($solicitud, 'Tu recurso de revisión fue registrado. La UIP le asignará un número de correlativo y te lo notificará por correo.');
+    }
+
+    /**
+     * Autoservicio (Fase 22b): el ciudadano pide su propia ampliación desde
+     * el portal de seguimiento. Crea una Ampliacion REAL, con el mismo
+     * comportamiento que ya tenía el panel administrativo: si el
+     * expediente ya está finalizado se registra como "no regulada" (con su
+     * correo de respuesta correspondiente); si sigue en trámite se
+     * registra como "recibida" y se notifica con la nueva plantilla
+     * "ampliacion_recibida".
+     */
+    public function solicitarAmpliacion(Request $request): View
+    {
+        $data = $request->validate([
+            'codigo_acceso' => ['required', 'string', 'max:255'],
+            'descripcion' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $solicitud = $this->buscarSolicitud($data['codigo_acceso'], 'seguimiento_ampliacion|'.$request->ip());
+
+        RateLimiter::hit('seguimiento_ampliacion_accion|'.$request->ip(), 3600);
+
+        $finalizada = $solicitud->estado?->clave === 'finalizada';
+        $estado = $finalizada ? 'rechazada_no_regulada' : 'recibida';
+
+        Actuacion::create([
+            'solicitud_id' => $solicitud->id,
+            'tipo' => 'ampliacion',
+            'iniciado_por' => 'ciudadano',
+            'fecha' => now()->toDateString(),
+            'descripcion' => $data['descripcion'],
+        ]);
+
+        Ampliacion::create([
+            'solicitud_id' => $solicitud->id,
+            'fecha_solicitud' => now()->toDateString(),
+            'descripcion' => $data['descripcion'],
+            'estado' => $estado,
+        ]);
+
+        $plantilla = $finalizada ? 'ampliacion_no_procedente' : 'ampliacion_recibida';
+        $this->notificaciones->enviar($solicitud, $plantilla, [], null);
+
+        SolicitudHistorial::create([
+            'solicitud_id' => $solicitud->id,
+            'tipo_actor' => 'ciudadano',
+            'descripcion' => $finalizada
+                ? 'El interesado solicitó una ampliación desde el portal de seguimiento después de la resolución: no está regulada por la Ley de Acceso a la Información Pública.'
+                : 'El interesado solicitó una ampliación desde el portal de seguimiento: '.$data['descripcion'],
+        ]);
+
+        return $this->resultadoView($solicitud, $finalizada
+            ? 'Tu solicitud de ampliación fue registrada. Este expediente ya fue resuelto, así que la ampliación no está regulada por la ley — revisa el correo que te enviamos.'
+            : 'Tu solicitud de ampliación fue registrada. La UIP te notificará por correo.');
     }
 
     public function descargarDocumento(Request $request, Documento $documento): StreamedResponse

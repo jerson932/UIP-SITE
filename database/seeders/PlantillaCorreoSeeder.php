@@ -47,6 +47,12 @@ class PlantillaCorreoSeeder extends Seeder
                 'cuerpo_template' => "Señor(a)\n{{nombre}}\nPresente\n\nCon un atento saludo nos dirigimos a usted, con el objeto de remitirle resolución que contiene Solicitud de Prórroga, en virtud que esta Unidad, aún no cuenta con la información solicitada y al momento de disponer de la misma, de forma inmediata se le estará haciendo llegar por esta misma vía mediante resolución correspondiente, mucho apreciaríamos se sirva acusar recepción de la presente notificación.\n\n" . self::FOOTER,
             ],
             [
+                'clave' => 'ampliacion_recibida',
+                'evento' => 'Ciudadano solicita ampliación sobre un expediente todavía en trámite (Fase 22b)',
+                'asunto_template' => 'Ampliación recibida - Contraseña No. {{contrasena}}',
+                'cuerpo_template' => "Estimado (a) señor(a) {{nombre}}:\n\nCon un atento saludo nos dirigimos a usted, para confirmar la recepción de su solicitud de ampliación correspondiente a la Contraseña No. {{contrasena}}. Su expediente continúa en trámite y esta Unidad le hará llegar la respuesta correspondiente por esta misma vía.\n\nSin otro particular, nos suscribimos de usted,\n\n" . self::FOOTER,
+            ],
+            [
                 'clave' => 'ampliacion_no_procedente',
                 'evento' => 'Ciudadano solicita ampliación después de la resolución (no regulada por la ley)',
                 'asunto_template' => 'Respuesta a solicitud de ampliación - Contraseña No. {{contrasena}}',

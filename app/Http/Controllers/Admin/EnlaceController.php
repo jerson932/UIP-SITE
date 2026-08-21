@@ -74,6 +74,13 @@ class EnlaceController extends Controller
         return view('admin.enlace.show', [
             'solicitud' => $solicitud,
             'documentosOficiales' => $solicitud->documentos->where('dependencia_id', $dependenciaId)->whereNotNull('plantilla_id'),
+            // Antes esta vista recibía $solicitud->documentos completo (TODOS
+            // los documentos del expediente, sin filtrar) y lo mostraba en una
+            // tarjeta "Todos los documentos del expediente" — el enlace podía
+            // ver archivos subidos por otras dependencias o por la propia UIP.
+            // El usuario pidió limitarlo a "los archivos que el enlace carga":
+            // solo lo que el propio usuario autenticado subió.
+            'documentosPropios' => $solicitud->documentos->where('subido_por_user_id', $request->user()->id),
         ]);
     }
 
@@ -103,6 +110,10 @@ class EnlaceController extends Controller
             'user_id' => $request->user()->id,
             'tipo_actor' => 'administrador',
             'descripcion' => "Observación de {$dependenciaNombre} ({$request->user()->name}): {$data['observacion']}",
+            // Deliberación interna entre la UIP y la dependencia que
+            // responde — no es un hito que el ciudadano deba ver en su
+            // portal de seguimiento (Fase 22b).
+            'visible_ciudadano' => false,
         ]);
 
         return back()->with('status', 'Observación guardada.');

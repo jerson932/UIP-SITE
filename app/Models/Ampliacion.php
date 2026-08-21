@@ -14,6 +14,7 @@ class Ampliacion extends Model
 
     protected $fillable = [
         'solicitud_id',
+        'documento_id',
         'fecha_solicitud',
         'descripcion',
         'estado',
@@ -30,5 +31,10 @@ class Ampliacion extends Model
     public function solicitud()
     {
         return $this->belongsTo(Solicitud::class, 'solicitud_id');
+    }
+
+    public function documento()
+    {
+        return $this->belongsTo(Documento::class, 'documento_id');
     }
 }

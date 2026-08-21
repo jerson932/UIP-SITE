@@ -48,6 +48,7 @@ class NotificacionesTest extends TestCase
             ['clave' => 'prorroga', 'evento' => 'test', 'asunto_template' => 'Notificación de Prórroga - Contraseña No. {{contrasena}}', 'cuerpo_template' => 'Señor(a) {{nombre}}, se le notifica prórroga.'],
             ['clave' => 'aclaracion_solicitada', 'evento' => 'test', 'asunto_template' => 'Solicitud de aclaración - Contraseña No. {{contrasena}}', 'cuerpo_template' => 'Se requiere aclaración, {{nombre}}.'],
             ['clave' => 'ampliacion_no_procedente', 'evento' => 'test', 'asunto_template' => 'Respuesta a ampliación - Contraseña No. {{contrasena}}', 'cuerpo_template' => 'Estimado {{nombre}}, no procede la ampliación.'],
+            ['clave' => 'ampliacion_recibida', 'evento' => 'test', 'asunto_template' => 'Ampliación recibida - Contraseña No. {{contrasena}}', 'cuerpo_template' => 'Estimado {{nombre}}, se registró su ampliación.'],
             ['clave' => 'recurso_recibido', 'evento' => 'test', 'asunto_template' => 'Acuse de recibo - Recurso de Revisión No. {{correlativo_recurso}}', 'cuerpo_template' => 'Se registró el recurso {{correlativo_recurso}}.'],
         ] as $p) {
             PlantillaCorreo::create($p + ['activa' => true]);
@@ -178,7 +179,29 @@ class NotificacionesTest extends TestCase
         $this->assertStringContainsString('30-2026', $correo->cuerpo);
     }
 
-    public function test_ampliacion_en_expediente_activo_no_envia_correo(): void
+    public function test_ampliacion_en_expediente_activo_envia_correo_por_defecto(): void
+    {
+        // Fase 22b: antes una ampliación sobre un expediente todavía en
+        // trámite nunca enviaba correo (no existía plantilla para ese
+        // caso); ahora usa la plantilla "ampliacion_recibida" con el mismo
+        // checkbox "enviar_correo" que las demás actuaciones (marcado por
+        // defecto).
+        $this->seedCatalog();
+        Mail::fake();
+        $user = $this->adminConPermisos(['solicitudes.ver', 'actuaciones.ampliacion']);
+        $solicitud = $this->solicitud(['contrasena' => '77-2026', 'fecha_vencimiento' => now()->addDays(10)->toDateString()]);
+
+        $this->actingAs($user)->post("/admin/solicitudes/{$solicitud->id}/ampliacion", [
+            'descripcion' => 'Pide información adicional.',
+        ]);
+
+        $correo = $solicitud->correos_enviados()->first();
+        $this->assertNotNull($correo);
+        $this->assertEquals('enviado', $correo->estado_entrega);
+        Mail::assertSent(PlantillaCorreoMail::class);
+    }
+
+    public function test_ampliacion_en_expediente_activo_no_envia_correo_si_se_desmarca(): void
     {
         $this->seedCatalog();
         Mail::fake();
@@ -187,6 +210,7 @@ class NotificacionesTest extends TestCase
 
         $this->actingAs($user)->post("/admin/solicitudes/{$solicitud->id}/ampliacion", [
             'descripcion' => 'Pide información adicional.',
+            'enviar_correo' => '0',
         ]);
 
         $this->assertEquals(0, $solicitud->correos_enviados()->count());

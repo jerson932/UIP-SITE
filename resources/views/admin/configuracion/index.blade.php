@@ -21,6 +21,21 @@
   <p style="margin:0 0 16px; color:#52514e; font-size:13.5px;">Plantillas de correo (Fase 11) y días feriados usados en el cálculo de plazos.</p>
 
   <div class="card">
+    <h4 style="margin:0 0 10px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">Aviso interno de nueva solicitud</h4>
+    <p style="margin:0 0 12px; font-size:12.5px; color:#898781;">
+      Cada vez que un ciudadano presenta una solicitud desde el portal en línea, se envía un aviso a esta dirección (además del acuse de recibo que recibe el ciudadano).
+    </p>
+    <form method="POST" action="{{ route('admin.configuracion.correo_uip.actualizar') }}" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+      @csrf
+      <div style="flex:1; min-width:240px;">
+        <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">Correo de avisos internos</label>
+        <input type="email" name="correo_uip" required value="{{ old('correo_uip', $correoUip) }}" style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13.5px;">
+      </div>
+      <button type="submit" style="padding:8px 16px; border:0; border-radius:8px; background:#2a78d6; color:#fff; font-size:13.5px; cursor:pointer;">Guardar</button>
+    </form>
+  </div>
+
+  <div class="card">
     <h4 style="margin:0 0 10px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">Plantillas de correo</h4>
     <table style="width:100%; border-collapse:collapse; font-size:13.5px;">
       <thead>

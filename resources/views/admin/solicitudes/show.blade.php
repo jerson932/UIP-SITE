@@ -354,9 +354,32 @@
       @elseif ($tab === 'recurso')
         @forelse ($solicitud->recursos_revision as $r)
           <div style="border-bottom:1px solid #f0efec; padding:10px 0; font-size:13px;">
-            <div>Recurso de Revisión No. <strong>{{ $r->correlativo }}</strong> — presentado {{ \Illuminate\Support\Carbon::parse($r->fecha_presentacion)->format('d/m/Y') }}</div>
-            <div style="color:#898781; margin-top:4px;">{{ $r->motivo }}</div>
-            <div style="margin-top:4px;">Estado: <strong>{{ ucfirst(str_replace('_', ' ', $r->estado)) }}</strong></div>
+            @if ($r->correlativo)
+              <div>Recurso de Revisión No. <strong>{{ $r->correlativo }}</strong> — presentado {{ \Illuminate\Support\Carbon::parse($r->fecha_presentacion)->format('d/m/Y') }}</div>
+              <div style="color:#898781; margin-top:4px;">{{ $r->motivo }}</div>
+              <div style="margin-top:4px;">Estado: <strong>{{ ucfirst(str_replace('_', ' ', $r->estado)) }}</strong></div>
+            @else
+              <div style="background:#fff8e6; border:1px solid #f0dfa8; border-radius:8px; padding:8px 10px; margin-bottom:8px; font-size:12.5px; color:#8a6100;">
+                Presentado por el interesado desde su portal de seguimiento el {{ \Illuminate\Support\Carbon::parse($r->fecha_presentacion)->format('d/m/Y') }} — todavía sin número de correlativo.
+              </div>
+              <div style="color:#898781;">{{ $r->motivo }}</div>
+              @if (auth()->user()->hasPermission('actuaciones.recurso'))
+                <form method="POST" action="{{ route('admin.solicitudes.recurso.correlativo', [$solicitud, $r]) }}" style="display:flex; gap:8px; align-items:flex-end; margin-top:10px; flex-wrap:wrap;">
+                  @csrf
+                  <div>
+                    <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">Correlativo</label>
+                    <input name="correlativo" placeholder="ej. 30-2026" required
+                           style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+                  </div>
+                  <div>
+                    <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">Fecha de vencimiento (opcional)</label>
+                    <input type="date" name="fecha_vencimiento" min="{{ now()->toDateString() }}"
+                           style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+                  </div>
+                  <button type="submit" style="background:#eb6834; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Asignar correlativo</button>
+                </form>
+              @endif
+            @endif
           </div>
         @empty
           <p style="font-size:13px; color:#898781;">No hay recursos de revisión en este expediente.</p>
@@ -423,7 +446,7 @@
         @endforelse
 
         @if (auth()->user()->hasPermission('actuaciones.ampliacion'))
-          <form method="POST" action="{{ route('admin.solicitudes.ampliacion', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
+          <form method="POST" action="{{ route('admin.solicitudes.ampliacion', $solicitud) }}" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
             @csrf
             @if ($estadoClave === 'finalizada')
               <p style="font-size:12px; color:#8a2c22; margin:0;">Este expediente ya está finalizado: la ampliación se registrará como no regulada por la ley, solo con fines de auditoría.</p>
@@ -431,6 +454,7 @@
             <label style="font-size:12px; color:#898781;">Descripción de lo que pide el interesado</label>
             <textarea name="descripcion" rows="3" required placeholder="Qué información adicional solicita…"
                       style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px; font-family:inherit;"></textarea>
+            @include('admin.partials.enviar-correo-campos', ['label' => 'la respuesta de la ampliación'])
             <button type="submit" style="align-self:flex-start; background:#e87ba4; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">Registrar ampliación</button>
           </form>
         @endif

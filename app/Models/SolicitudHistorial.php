@@ -22,10 +22,12 @@ class SolicitudHistorial extends Model
         'estado_anterior_id',
         'estado_nuevo_id',
         'metadata',
+        'visible_ciudadano',
     ];
 
     protected $casts = [
         'metadata' => 'array',
+        'visible_ciudadano' => 'boolean',
     ];
 
     public function solicitud()
