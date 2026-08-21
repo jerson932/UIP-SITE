@@ -56,16 +56,17 @@ class DocumentoOficialService
     }
 
     /**
+     * Un expediente puede generar varios oficios/providencias a lo largo
+     * del tiempo, cada uno hacia su propia dependencia — por eso la
+     * dependencia se recibe explícita aquí en vez de leerse de
+     * $solicitud->dependencia (que es solo la asignación "actual").
+     *
      * @param  array{rc?: ?string, folio?: ?string, no_oficio?: ?string, no_providencia?: ?string}  $datos
      */
-    public function generar(Solicitud $solicitud, array $datos, ?int $userId): Documento
+    public function generar(Solicitud $solicitud, Dependencia $dependencia, array $datos, ?int $userId): Documento
     {
-        if (! $solicitud->dependencia) {
-            throw new \RuntimeException('La solicitud no tiene dependencia asignada todavía.');
-        }
-
-        $clave = $this->claveParaDependencia($solicitud->dependencia);
-        $tipo = $this->tipoParaDependencia($solicitud->dependencia);
+        $clave = $this->claveParaDependencia($dependencia);
+        $tipo = $this->tipoParaDependencia($dependencia);
 
         $plantilla = PlantillaDocumento::where('clave', $clave)->where('activa', true)->first();
         if (! $plantilla) {
@@ -99,7 +100,7 @@ class DocumentoOficialService
         $tp->setValue('folio', $this->texto($solicitud->folio));
         $tp->setValue('interesado', $this->texto($solicitud->solicitante?->nombre));
         $tp->setValue('descripcion', $this->texto($solicitud->asunto));
-        $tp->setValue('dependencia', $this->texto($solicitud->dependencia->nombre));
+        $tp->setValue('dependencia', $this->texto($dependencia->nombre));
         $tp->setValue('no_oficio', $this->texto($noOficio));
         $tp->setValue('no_providencia', $this->texto($noProvidencia));
         $tp->setValue('titulo_numero', $this->tituloNumero($tipo, $noOficio, $noProvidencia));
@@ -117,7 +118,8 @@ class DocumentoOficialService
         return Documento::create([
             'solicitud_id' => $solicitud->id,
             'plantilla_id' => $plantilla->id,
-            'nombre' => ($tipo === 'oficio' ? 'Oficio' : 'Providencia').' — '.$solicitud->dependencia->nombre,
+            'dependencia_id' => $dependencia->id,
+            'nombre' => ($tipo === 'oficio' ? 'Oficio' : 'Providencia').' — '.$dependencia->nombre,
             'ruta_archivo' => $rutaRelativa,
             'tipo' => 'docx',
             'visible_ciudadano' => $plantilla->visible_ciudadano_default,

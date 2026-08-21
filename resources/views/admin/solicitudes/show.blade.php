@@ -1,6 +1,8 @@
 @extends('layouts.admin')
 
 @section('title', 'Expediente '.$solicitud->codigo_ns)
+@section('pageTitle', 'Expediente '.$solicitud->codigo_ns)
+@section('pageSubtitle', 'Detalle y seguimiento de la solicitud')
 
 @php
   $dias = $solicitud->diasHabilesRestantes();
@@ -155,16 +157,37 @@
         @endif
       </div>
 
-      @if ($solicitud->dependencia && auth()->user()->hasPermission('solicitudes.generar_documento'))
+      @if (auth()->user()->hasPermission('solicitudes.generar_documento'))
+        @php
+          $documentosOficiales = $solicitud->documentos->whereNotNull('plantilla_id')->sortByDesc('created_at');
+        @endphp
         <div class="card">
-          <h4 style="margin:0 0 10px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">
-            Generar {{ $tipoDocumentoOficial === 'oficio' ? 'Oficio' : 'Providencia' }}
-          </h4>
+          <h4 style="margin:0 0 10px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">Oficios y providencias</h4>
           <p style="font-size:12px; color:#898781; margin:0 0 10px;">
-            Traslado hacia <strong>{{ $solicitud->dependencia->nombre }}</strong>. El documento generado queda interno (no visible al ciudadano) y se puede descargar desde la pestaña "Documentos".
+            Un mismo expediente puede generar varios, hacia distintas dependencias — cada uno queda guardado por separado, sin reemplazar al anterior.
           </p>
-          <form method="POST" action="{{ route('admin.solicitudes.documento_oficial', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px;">
+
+          @forelse ($documentosOficiales as $doc)
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0efec; padding:7px 0; font-size:12.5px; gap:8px;">
+              <div>
+                <div>{{ $doc->nombre }}@if ($doc->no_oficio) (No. {{ $doc->no_oficio }}) @elseif ($doc->no_providencia) (No. {{ $doc->no_providencia }}) @endif</div>
+                <div style="color:#898781; font-size:11.5px;">{{ $doc->created_at?->format('d/m/Y H:i') }}</div>
+              </div>
+              <a href="{{ route('admin.solicitudes.documentos.descargar', [$solicitud, $doc]) }}" style="color:#2a78d6; text-decoration:none; flex:0 0 auto;">Descargar</a>
+            </div>
+          @empty
+            <p style="font-size:13px; color:#898781; margin:0 0 10px;">Todavía no se ha generado ningún oficio o providencia.</p>
+          @endforelse
+
+          <form method="POST" action="{{ route('admin.solicitudes.documento_oficial', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px; margin-top:12px; padding-top:12px; border-top:1px solid #f0efec;">
             @csrf
+            <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">Dependencia a la que se dirige</label>
+            <select name="dependencia_id" id="doc-oficial-dependencia" required style="padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+              <option value="">Selecciona dependencia…</option>
+              @foreach ($dependencias as $dep)
+                <option value="{{ $dep->id }}" data-tipo="{{ str_starts_with((string) $dep->plantilla_clave, 'oficio_') ? 'oficio' : 'providencia' }}">{{ $dep->nombre }}</option>
+              @endforeach
+            </select>
             <div style="display:flex; gap:8px;">
               <div style="flex:1;">
                 <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">RC</label>
@@ -177,24 +200,39 @@
                        style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
               </div>
             </div>
-            @if ($tipoDocumentoOficial === 'oficio')
-              <div>
-                <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">No. de oficio</label>
-                <input name="no_oficio" placeholder="ej. 123-2026" required
-                       style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
-              </div>
-            @else
-              <div>
-                <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">No. de providencia</label>
-                <input name="no_providencia" placeholder="ej. 123-2026" required
-                       style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
-              </div>
-            @endif
+            <div id="doc-oficial-campo-oficio">
+              <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">No. de oficio</label>
+              <input name="no_oficio" placeholder="ej. 123-2026"
+                     style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+            </div>
+            <div id="doc-oficial-campo-providencia">
+              <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">No. de providencia</label>
+              <input name="no_providencia" placeholder="ej. 123-2026"
+                     style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+            </div>
+            <p style="font-size:11.5px; color:#898781; margin:0;">Solo se usa el número que corresponda según la dependencia elegida (oficio para Despacho/Viceministerios, providencia para el resto).</p>
             <button type="submit" style="align-self:flex-start; background:#4a3aa7; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">
-              Generar {{ $tipoDocumentoOficial === 'oficio' ? 'oficio' : 'providencia' }}
+              Generar
             </button>
           </form>
         </div>
+
+        <script>
+          (function () {
+            var select = document.getElementById('doc-oficial-dependencia');
+            var campoOficio = document.getElementById('doc-oficial-campo-oficio');
+            var campoProvidencia = document.getElementById('doc-oficial-campo-providencia');
+            if (! select) { return; }
+            function actualizar() {
+              var opcion = select.options[select.selectedIndex];
+              var tipo = opcion ? opcion.getAttribute('data-tipo') : null;
+              campoOficio.style.display = (tipo === 'oficio') ? '' : 'none';
+              campoProvidencia.style.display = (tipo === 'providencia') ? '' : 'none';
+            }
+            select.addEventListener('change', actualizar);
+            actualizar();
+          })();
+        </script>
       @endif
 
       <div class="card">

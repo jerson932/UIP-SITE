@@ -16,9 +16,12 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-// Generación del Oficio/Providencia de traslado a la dependencia asignada
-// (Fase 19), a partir de las plantillas .docx reales en
-// resources/plantillas_oficiales/ (App\Services\DocumentoOficialService).
+// Generación de Oficios/Providencias de traslado (Fase 19), a partir de las
+// plantillas .docx reales en resources/plantillas_oficiales/
+// (App\Services\DocumentoOficialService). Un mismo expediente puede generar
+// varios, cada uno hacia SU PROPIA dependencia elegida al generar — por
+// eso la dependencia se manda en el POST y no se lee de
+// solicitud.dependencia_id (que es solo la asignación "actual").
 class DocumentoOficialTest extends TestCase
 {
     use RefreshDatabase;
@@ -50,16 +53,20 @@ class DocumentoOficialTest extends TestCase
         ]);
     }
 
-    private function solicitudConDependencia(?string $plantillaClave): Solicitud
+    private function dependencia(string $codigo, ?string $plantillaClave, ?string $nombre = null): Dependencia
     {
-        $estado = SolicitudEstado::create(['clave' => 'en_seguimiento', 'etiqueta' => 'En seguimiento', 'color' => '#2a78d6', 'orden' => 2]);
-        $solicitante = Solicitante::create(['nombre' => 'Juan Carlos Pérez López', 'correo' => 'interesado@example.com']);
-        $dependencia = Dependencia::create([
-            'codigo' => 'TESTDEP',
-            'nombre' => $plantillaClave === 'oficio_despacho' ? 'Despacho Superior' : 'Dirección de Planificación de este Ministerio',
+        return Dependencia::create([
+            'codigo' => $codigo,
+            'nombre' => $nombre ?? $codigo,
             'activa' => true,
             'plantilla_clave' => $plantillaClave,
         ]);
+    }
+
+    private function solicitudBase(): Solicitud
+    {
+        $estado = SolicitudEstado::create(['clave' => 'en_seguimiento', 'etiqueta' => 'En seguimiento', 'color' => '#2a78d6', 'orden' => 2]);
+        $solicitante = Solicitante::create(['nombre' => 'Juan Carlos Pérez López', 'correo' => 'interesado@example.com']);
 
         return Solicitud::create([
             'codigo_ns' => 'NS_TEST-2026',
@@ -69,7 +76,6 @@ class DocumentoOficialTest extends TestCase
             'asunto' => 'información sobre el presupuesto ejecutado del año 2025',
             'medio_recepcion' => 'electronica',
             'estado_id' => $estado->id,
-            'dependencia_id' => $dependencia->id,
             'fecha_ingreso' => now()->toDateString(),
         ]);
     }
@@ -77,10 +83,11 @@ class DocumentoOficialTest extends TestCase
     public function test_requiere_permiso_solicitudes_generar_documento(): void
     {
         $user = $this->adminConPermisos([]);
-        $solicitud = $this->solicitudConDependencia('oficio_despacho');
+        $solicitud = $this->solicitudBase();
+        $dep = $this->dependencia('DESPACHO', 'oficio_despacho');
 
         $this->actingAs($user)
-            ->post(route('admin.solicitudes.documento_oficial', $solicitud), ['no_oficio' => '1-2026'])
+            ->post(route('admin.solicitudes.documento_oficial', $solicitud), ['dependencia_id' => $dep->id, 'no_oficio' => '1-2026'])
             ->assertStatus(403);
     }
 
@@ -89,9 +96,11 @@ class DocumentoOficialTest extends TestCase
         Storage::fake('local');
         $this->plantilla('oficio_despacho', 'Oficio — Despacho Superior');
         $admin = $this->adminConPermisos(['solicitudes.generar_documento']);
-        $solicitud = $this->solicitudConDependencia('oficio_despacho');
+        $solicitud = $this->solicitudBase();
+        $dep = $this->dependencia('DESPACHO', 'oficio_despacho', 'Despacho Superior');
 
         $response = $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), [
+            'dependencia_id' => $dep->id,
             'rc' => '4455',
             'folio' => '12',
             'no_oficio' => '99-2026',
@@ -103,6 +112,7 @@ class DocumentoOficialTest extends TestCase
         $documento = Documento::where('solicitud_id', $solicitud->id)->first();
         $this->assertNotNull($documento);
         $this->assertEquals('docx', $documento->tipo);
+        $this->assertEquals($dep->id, $documento->dependencia_id);
         $this->assertEquals('99-2026', $documento->no_oficio);
         $this->assertNull($documento->no_providencia);
         $this->assertFalse((bool) $documento->visible_ciudadano);
@@ -123,9 +133,11 @@ class DocumentoOficialTest extends TestCase
         Storage::fake('local');
         $this->plantilla('providencia_generica', 'Providencia genérica');
         $admin = $this->adminConPermisos(['solicitudes.generar_documento']);
-        $solicitud = $this->solicitudConDependencia(null);
+        $solicitud = $this->solicitudBase();
+        $dep = $this->dependencia('PLANIF', null, 'Dirección de Planificación de este Ministerio');
 
         $response = $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), [
+            'dependencia_id' => $dep->id,
             'no_providencia' => '77-2026',
         ]);
 
@@ -142,10 +154,12 @@ class DocumentoOficialTest extends TestCase
     {
         $this->plantilla('oficio_despacho', 'Oficio — Despacho Superior');
         $admin = $this->adminConPermisos(['solicitudes.generar_documento']);
-        $solicitud = $this->solicitudConDependencia('oficio_despacho');
+        $solicitud = $this->solicitudBase();
+        $dep = $this->dependencia('DESPACHO', 'oficio_despacho', 'Despacho Superior');
 
         // Falta no_oficio (es tipo oficio) — debe fallar la validación.
         $response = $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), [
+            'dependencia_id' => $dep->id,
             'no_providencia' => '1-2026',
         ]);
 
@@ -153,20 +167,10 @@ class DocumentoOficialTest extends TestCase
         $this->assertEquals(0, Documento::where('solicitud_id', $solicitud->id)->count());
     }
 
-    public function test_no_permite_generar_sin_dependencia_asignada(): void
+    public function test_no_permite_generar_sin_elegir_dependencia(): void
     {
         $admin = $this->adminConPermisos(['solicitudes.generar_documento']);
-        $estado = SolicitudEstado::create(['clave' => 'pendiente_validacion', 'etiqueta' => 'Pendiente', 'color' => '#eda100', 'orden' => 1]);
-        $solicitante = Solicitante::create(['nombre' => 'Sin Dependencia', 'correo' => 'sindep@example.com']);
-        $solicitud = Solicitud::create([
-            'codigo_ns' => 'NS_TEST2-2026',
-            'codigo_acceso' => 'TEST-0002',
-            'solicitante_id' => $solicitante->id,
-            'asunto' => 'una solicitud sin dependencia asignada todavía',
-            'medio_recepcion' => 'electronica',
-            'estado_id' => $estado->id,
-            'fecha_ingreso' => now()->toDateString(),
-        ]);
+        $solicitud = $this->solicitudBase();
 
         $response = $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), [
             'no_providencia' => '1-2026',
@@ -177,15 +181,80 @@ class DocumentoOficialTest extends TestCase
         $this->assertEquals(0, Documento::where('solicitud_id', $solicitud->id)->count());
     }
 
+    public function test_una_solicitud_puede_generar_varios_documentos_hacia_dependencias_distintas(): void
+    {
+        Storage::fake('local');
+        $this->plantilla('oficio_despacho', 'Oficio — Despacho Superior');
+        $this->plantilla('providencia_generica', 'Providencia genérica');
+        $this->plantilla('providencia_pnc', 'Providencia — PNC');
+        $admin = $this->adminConPermisos(['solicitudes.generar_documento']);
+        $solicitud = $this->solicitudBase();
+
+        $despacho = $this->dependencia('DESPACHO', 'oficio_despacho', 'Despacho Superior');
+        $planif = $this->dependencia('PLANIF', null, 'Dirección de Planificación de este Ministerio');
+        $pnc = $this->dependencia('PNC', 'providencia_pnc', 'Dirección General de la Policía Nacional Civil');
+
+        $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), [
+            'dependencia_id' => $despacho->id, 'no_oficio' => '1-2026',
+        ]);
+        $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), [
+            'dependencia_id' => $planif->id, 'no_providencia' => '2-2026',
+        ]);
+        $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), [
+            'dependencia_id' => $pnc->id, 'no_providencia' => '3-2026',
+        ]);
+
+        $documentos = Documento::where('solicitud_id', $solicitud->id)->orderBy('id')->get();
+        $this->assertCount(3, $documentos);
+        $this->assertEquals([$despacho->id, $planif->id, $pnc->id], $documentos->pluck('dependencia_id')->all());
+
+        // Ninguno se pisa con otro — cada uno tiene su propio archivo.
+        $rutas = $documentos->pluck('ruta_archivo')->unique();
+        $this->assertCount(3, $rutas);
+        foreach ($documentos as $doc) {
+            Storage::disk('local')->assertExists($doc->ruta_archivo);
+        }
+    }
+
+    public function test_el_documento_generado_se_descarga_con_extension_docx(): void
+    {
+        // Bug reportado: "no se descargó el word". El archivo en el disco
+        // SÍ se genera bien, pero el nombre de descarga ("Providencia — X")
+        // no traía extensión, así que el navegador guardaba el archivo sin
+        // ".docx" y Windows no sabía abrirlo con Word. Este test cubre que
+        // el Content-Disposition de la descarga sí incluya la extensión.
+        Storage::fake('local');
+        $this->plantilla('providencia_generica', 'Providencia genérica');
+        $admin = $this->adminConPermisos(['solicitudes.generar_documento', 'solicitudes.ver']);
+        $solicitud = $this->solicitudBase();
+        $dep = $this->dependencia('DIGCI', null, 'Dirección General de Inteligencia Civil');
+
+        $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), [
+            'dependencia_id' => $dep->id,
+            'no_providencia' => '2154-2026',
+        ]);
+
+        $documento = Documento::where('solicitud_id', $solicitud->id)->first();
+        $this->assertNotNull($documento);
+        $this->assertStringNotContainsString('.docx', $documento->nombre);
+
+        $response = $this->actingAs($admin)->get(route('admin.solicitudes.documentos.descargar', [$solicitud, $documento]));
+
+        $response->assertOk();
+        $disposition = $response->headers->get('content-disposition');
+        $this->assertStringContainsString('.docx', $disposition);
+    }
+
     public function test_generar_dos_veces_no_sobrescribe_el_archivo_anterior(): void
     {
         Storage::fake('local');
         $this->plantilla('providencia_generica', 'Providencia genérica');
         $admin = $this->adminConPermisos(['solicitudes.generar_documento']);
-        $solicitud = $this->solicitudConDependencia(null);
+        $solicitud = $this->solicitudBase();
+        $dep = $this->dependencia('PLANIF', null, 'Dirección de Planificación de este Ministerio');
 
-        $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), ['no_providencia' => '1-2026']);
-        $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), ['no_providencia' => '2-2026']);
+        $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), ['dependencia_id' => $dep->id, 'no_providencia' => '1-2026']);
+        $this->actingAs($admin)->post(route('admin.solicitudes.documento_oficial', $solicitud), ['dependencia_id' => $dep->id, 'no_providencia' => '2-2026']);
 
         $documentos = Documento::where('solicitud_id', $solicitud->id)->get();
         $this->assertCount(2, $documentos);

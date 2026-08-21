@@ -71,6 +71,16 @@ class ReporteController extends Controller
             ->sortByDesc('total')
             ->values();
 
+        $porGenero = $filtradas->groupBy(fn ($s) => $s->solicitante?->genero ?: 'No indicado')
+            ->map(fn ($grupo, $nombre) => ['nombre' => $nombre, 'total' => $grupo->count()])
+            ->sortByDesc('total')
+            ->values();
+
+        $porDepartamento = $filtradas->groupBy(fn ($s) => $s->solicitante?->departamento ?: 'No indicado')
+            ->map(fn ($grupo, $nombre) => ['nombre' => $nombre, 'total' => $grupo->count()])
+            ->sortByDesc('total')
+            ->values();
+
         // Solo tiene sentido hablar de "vencidas" / "próximas a vencer" para
         // expedientes que todavía están activos (estado no final) y ya
         // tienen fecha_vencimiento asignada.
@@ -85,6 +95,8 @@ class ReporteController extends Controller
             'porEstado' => $porEstado,
             'porDependencia' => $porDependencia,
             'porMedio' => $porMedio,
+            'porGenero' => $porGenero,
+            'porDepartamento' => $porDepartamento,
             'estados' => SolicitudEstado::orderBy('orden')->get(),
             'dependencias' => Dependencia::orderBy('nombre')->get(),
             'filtros' => $request->only(['desde', 'hasta', 'estado', 'dependencia_id']),
@@ -106,6 +118,7 @@ class ReporteController extends Controller
 
         $encabezados = [
             'Código NS', 'Contraseña', 'Fecha ingreso', 'Interesado', 'Correo',
+            'Género', 'Departamento',
             'Medio de recepción', 'Asunto', 'Estado', 'Dependencia',
             'Fecha vencimiento', 'Días restantes', 'Fecha finalización',
         ];
@@ -119,6 +132,8 @@ class ReporteController extends Controller
                 optional($s->fecha_ingreso)->format('d/m/Y'),
                 $s->solicitante?->nombre ?? '',
                 $s->solicitante?->correo ?? '',
+                $s->solicitante?->genero ?? '',
+                $s->solicitante?->departamento ?? '',
                 $this->etiquetaMedio($s->medio_recepcion),
                 $s->asunto,
                 $s->estado?->etiqueta ?? '',

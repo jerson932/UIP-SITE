@@ -1,6 +1,8 @@
 @extends('layouts.admin')
 
 @section('title', 'Configuración')
+@section('pageTitle', 'Configuración')
+@section('pageSubtitle', 'Plantillas de correo y días feriados usados en el cálculo de plazos')
 
 @section('content')
   @if (session('status'))

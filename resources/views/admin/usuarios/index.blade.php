@@ -1,6 +1,8 @@
 @extends('layouts.admin')
 
 @section('title', 'Usuarios')
+@section('pageTitle', 'Usuarios y permisos')
+@section('pageSubtitle', 'Cuentas del panel administrativo, sus roles y su estado')
 
 @section('content')
   @if (session('status'))

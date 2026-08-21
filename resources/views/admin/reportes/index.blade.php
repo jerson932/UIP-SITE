@@ -1,13 +1,10 @@
 @extends('layouts.admin')
 
 @section('title', 'Reportes')
+@section('pageTitle', 'Reportes')
+@section('pageSubtitle', 'Estadísticas de solicitudes según los filtros seleccionados — "Exportar" descarga exactamente lo que ves aquí')
 
 @section('content')
-  <div style="margin-bottom:16px;">
-    <h2 style="margin:0 0 4px;">Reportes</h2>
-    <p style="margin:0; color:#52514e; font-size:13.5px;">Estadísticas de solicitudes según los filtros seleccionados. El botón "Exportar" descarga exactamente lo que ves aquí.</p>
-  </div>
-
   <form method="GET" action="{{ route('admin.reportes.index') }}" class="card" style="padding:14px 18px; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
     <div>
       <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">Ingreso desde</label>
@@ -88,6 +85,30 @@
     <div class="card" style="flex:1; min-width:260px;">
       <h4 style="margin:0 0 10px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">Por medio de recepción</h4>
       @forelse ($porMedio as $fila)
+        <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0efec; font-size:13.5px;">
+          <span>{{ $fila['nombre'] }}</span>
+          <strong>{{ $fila['total'] }}</strong>
+        </div>
+      @empty
+        <p style="font-size:13px; color:#898781; margin:0;">Sin datos para este filtro.</p>
+      @endforelse
+    </div>
+
+    <div class="card" style="flex:1; min-width:260px;">
+      <h4 style="margin:0 0 10px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">Por género</h4>
+      @forelse ($porGenero as $fila)
+        <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0efec; font-size:13.5px;">
+          <span>{{ $fila['nombre'] }}</span>
+          <strong>{{ $fila['total'] }}</strong>
+        </div>
+      @empty
+        <p style="font-size:13px; color:#898781; margin:0;">Sin datos para este filtro.</p>
+      @endforelse
+    </div>
+
+    <div class="card" style="flex:1; min-width:260px;">
+      <h4 style="margin:0 0 10px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">Por departamento</h4>
+      @forelse ($porDepartamento as $fila)
         <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0efec; font-size:13.5px;">
           <span>{{ $fila['nombre'] }}</span>
           <strong>{{ $fila['total'] }}</strong>

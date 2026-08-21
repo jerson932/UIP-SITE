@@ -10,10 +10,37 @@ class DependenciaSeeder extends Seeder
 {
     public function run(): void
     {
-        // Las 3 dependencias de muestra de las fases iniciales que
-        // coinciden con nombres reales de la lista de 32 (Fase 19) se
-        // actualizan en su lugar, en vez de crear un duplicado — conservan
-        // su "codigo" y su enlace de ejemplo ya sembrado.
+        // Las 5 dependencias de muestra de las fases iniciales (Fase 7):
+        // se crean primero tal como siempre (SolicitudDemoSeeder depende
+        // de que estos 5 "codigo" existan, incluso en una instalación
+        // nueva con "migrate:fresh --seed"). 3 de ellas coinciden con
+        // nombres reales de la lista de 32 (Fase 19) y se renombran justo
+        // después, en vez de crear una fila duplicada — conservan su
+        // "codigo" y su enlace de ejemplo.
+        $demo = [
+            ['codigo' => 'PLANIF', 'nombre' => 'Dirección de Planificación', 'enlace' => 'Lic. Marta Solís'],
+            ['codigo' => 'FIN', 'nombre' => 'Dirección de Finanzas', 'enlace' => 'Ing. Pedro Ramírez'],
+            ['codigo' => 'JURID', 'nombre' => 'Dirección de Asuntos Jurídicos', 'enlace' => 'Licda. Rosa Ixchop'],
+            ['codigo' => 'RRHH', 'nombre' => 'Dirección de Recursos Humanos', 'enlace' => 'Lic. Jorge Tzul'],
+            ['codigo' => 'ADMIN', 'nombre' => 'Dirección Administrativa', 'enlace' => 'Ing. Sofía Reyes'],
+        ];
+
+        foreach ($demo as $d) {
+            $dep = Dependencia::updateOrCreate(['codigo' => $d['codigo']], [
+                'nombre' => $d['nombre'],
+                'activa' => true,
+            ]);
+
+            Enlace::updateOrCreate(
+                ['dependencia_id' => $dep->id, 'nombre' => $d['enlace']],
+                [
+                    'correo' => strtolower(str_replace(' ', '.', $d['codigo'])).'.enlace@mingob.gob.gt',
+                    'telefono' => null,
+                    'activo' => true,
+                ]
+            );
+        }
+
         $muestraActualizada = [
             'PLANIF' => 'Dirección de Planificación de este Ministerio',
             'RRHH' => 'Dirección de Recursos Humanos de este Ministerio',
@@ -75,33 +102,6 @@ class DependenciaSeeder extends Seeder
                 'activa' => true,
                 'plantilla_clave' => $d['plantilla_clave'],
             ]);
-        }
-
-        // Enlaces de muestra (Fase 7) — solo para las 5 dependencias de
-        // demo originales, para no inventar enlaces reales que no se han
-        // proporcionado para las 29 dependencias nuevas.
-        $enlacesMuestra = [
-            'PLANIF' => 'Lic. Marta Solís',
-            'FIN' => 'Ing. Pedro Ramírez',
-            'JURID' => 'Licda. Rosa Ixchop',
-            'RRHH' => 'Lic. Jorge Tzul',
-            'ADMIN' => 'Ing. Sofía Reyes',
-        ];
-
-        foreach ($enlacesMuestra as $codigo => $nombreEnlace) {
-            $dep = Dependencia::where('codigo', $codigo)->first();
-            if (! $dep) {
-                continue;
-            }
-
-            Enlace::updateOrCreate(
-                ['dependencia_id' => $dep->id, 'nombre' => $nombreEnlace],
-                [
-                    'correo' => strtolower(str_replace(' ', '.', $codigo)).'.enlace@mingob.gob.gt',
-                    'telefono' => null,
-                    'activo' => true,
-                ]
-            );
         }
     }
 }

@@ -147,24 +147,28 @@ class SolicitudActionController extends Controller
         return back()->with('status', 'Dependencia asignada.');
     }
 
-    // Genera el Oficio o la Providencia de traslado a la dependencia ya
-    // asignada (Fase 19), a partir de las plantillas .docx reales
-    // (DocumentoOficialService). RC/FOLIO/No. de oficio/providencia son
-    // manuales — el sistema no los inventa, igual que el resto de números
-    // "oficiales" en este expediente (spec: "el número oficial ... lo
-    // asigna manualmente el administrador"). Se puede generar más de una
-    // vez (p. ej. si se reasigna a otra dependencia): cada generación deja
-    // su propio Documento y su propia entrada en el historial, sin
-    // reemplazar la anterior.
+    // Genera un Oficio o una Providencia de traslado hacia UNA dependencia
+    // elegida en el momento (Fase 19), a partir de las plantillas .docx
+    // reales (DocumentoOficialService). Es independiente de
+    // solicitud.dependencia_id: un mismo expediente puede generar varios
+    // oficios/providencias hacia distintas dependencias a lo largo del
+    // tiempo, cada uno con su propio Documento descargable y su propia
+    // entrada en el historial — ninguno reemplaza al anterior.
+    // RC/FOLIO/No. de oficio/providencia son manuales — el sistema no los
+    // inventa, igual que el resto de números "oficiales" en este
+    // expediente (spec: "el número oficial ... lo asigna manualmente el
+    // administrador").
     public function generarDocumentoOficial(Request $request, Solicitud $solicitud): RedirectResponse
     {
-        if (! $solicitud->dependencia) {
-            return back()->with('error', 'Debe asignarse una dependencia antes de generar el oficio/providencia.');
+        $dependencia = Dependencia::find($request->input('dependencia_id'));
+        if (! $dependencia) {
+            return back()->with('error', 'Selecciona la dependencia a la que se dirige el documento.');
         }
 
-        $tipo = $this->documentosOficiales->tipoParaDependencia($solicitud->dependencia);
+        $tipo = $this->documentosOficiales->tipoParaDependencia($dependencia);
 
         $data = $request->validate([
+            'dependencia_id' => ['required', 'exists:dependencias,id'],
             'rc' => ['nullable', 'string', 'max:50'],
             'folio' => ['nullable', 'string', 'max:50'],
             'no_oficio' => [$tipo === 'oficio' ? 'required' : 'nullable', 'string', 'max:50'],
@@ -175,14 +179,14 @@ class SolicitudActionController extends Controller
         ]);
 
         try {
-            $documento = $this->documentosOficiales->generar($solicitud, $data, auth()->id());
+            $documento = $this->documentosOficiales->generar($solicitud, $dependencia, $data, auth()->id());
         } catch (\RuntimeException $e) {
             return back()->with('error', $e->getMessage());
         }
 
         $this->historial(
             $solicitud,
-            ($tipo === 'oficio' ? 'Oficio' : 'Providencia')." generado hacia {$solicitud->dependencia->nombre}: {$documento->nombre}."
+            ($tipo === 'oficio' ? 'Oficio' : 'Providencia')." generado hacia {$dependencia->nombre}: {$documento->nombre}."
         );
 
         return back()->with('status', ucfirst($tipo).' generado. Puede descargarlo desde la pestaña "Documentos".');

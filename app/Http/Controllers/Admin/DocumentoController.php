@@ -104,6 +104,6 @@ class DocumentoController extends Controller
             abort(404, 'El archivo ya no está disponible en el servidor.');
         }
 
-        return Storage::disk('local')->download($documento->ruta_archivo, $documento->nombre);
+        return Storage::disk('local')->download($documento->ruta_archivo, $documento->nombreDescarga());
     }
 }
