@@ -8,6 +8,7 @@ use App\Models\Solicitante;
 use App\Models\Solicitud;
 use App\Models\SolicitudEstado;
 use App\Models\SolicitudHistorial;
+use App\Services\DocumentoIntakeService;
 use App\Services\NotificacionService;
 use App\Support\CatalogosSolicitud;
 use App\Support\GeneradorSolicitud;
@@ -25,8 +26,10 @@ use Illuminate\View\View;
 // Public\SolicitudPublicaController.
 class SolicitudController extends Controller
 {
-    public function __construct(private NotificacionService $notificaciones)
-    {
+    public function __construct(
+        private NotificacionService $notificaciones,
+        private DocumentoIntakeService $documentos
+    ) {
     }
 
     public function index(Request $request): View
@@ -89,9 +92,10 @@ class SolicitudController extends Controller
             'departamento' => ['nullable', 'string', 'in:'.implode(',', CatalogosSolicitud::DEPARTAMENTOS)],
             'medio_recepcion' => ['required', 'string', 'in:'.implode(',', array_keys(CatalogosSolicitud::MEDIOS_RECEPCION))],
             'asunto' => ['required', 'string', 'min:10', 'max:5000'],
+            'documento' => ['nullable', 'file', 'mimes:'.implode(',', DocumentoIntakeService::MIMES), 'max:'.DocumentoIntakeService::MAX_KB],
         ]);
 
-        $solicitud = DB::transaction(function () use ($data) {
+        $solicitud = DB::transaction(function () use ($data, $request) {
             $solicitante = Solicitante::localizarOCrear([
                 'nombre' => $data['nombre'],
                 'correo' => $data['correo'] ?? null,
@@ -122,6 +126,16 @@ class SolicitudController extends Controller
                 'descripcion' => 'Solicitud registrada por la UIP (recepción '.CatalogosSolicitud::MEDIOS_RECEPCION[$data['medio_recepcion']].').',
                 'estado_nuevo_id' => $estadoInicial->id,
             ]);
+
+            $documento = $this->documentos->guardar($solicitud, $request->file('documento'), false, auth()->id());
+            if ($documento) {
+                SolicitudHistorial::create([
+                    'solicitud_id' => $solicitud->id,
+                    'user_id' => auth()->id(),
+                    'tipo_actor' => 'administrador',
+                    'descripcion' => "Archivo adjunto al registrar la solicitud: {$documento->nombre}.",
+                ]);
+            }
 
             return $solicitud;
         });

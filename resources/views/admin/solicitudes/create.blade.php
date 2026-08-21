@@ -18,7 +18,7 @@
       Se genera el código NS y el código de acceso automáticamente, en estado "Pendiente de validación".
     </p>
 
-    <form method="POST" action="{{ route('admin.solicitudes.store') }}" style="display:flex; flex-direction:column; gap:12px;">
+    <form method="POST" action="{{ route('admin.solicitudes.store') }}" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:12px;">
       @csrf
 
       <div>
@@ -84,6 +84,13 @@
         <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">Información solicitada</label>
         <textarea name="asunto" rows="5" required minlength="10"
                   style="width:100%; padding:9px 12px; border:1px solid #d8d6cf; border-radius:7px; font-size:13.5px; font-family:inherit;">{{ old('asunto') }}</textarea>
+      </div>
+
+      <div>
+        <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">Adjuntar un documento (opcional)</label>
+        <input type="file" name="documento" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
+               style="width:100%; padding:8px 0; font-size:13px;">
+        <p style="font-size:11.5px; color:#898781; margin:4px 0 0;">PDF, Word, Excel o foto — máximo 10 MB.</p>
       </div>
 
       <button type="submit" style="align-self:flex-start; background:#2a78d6; color:#fff; border:0; border-radius:7px; padding:9px 18px; font-size:13.5px; font-weight:600; cursor:pointer; margin-top:6px;">

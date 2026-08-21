@@ -336,8 +336,8 @@
         @if (auth()->user()->hasPermission('documentos.subir'))
           <form method="POST" action="{{ route('admin.solicitudes.documentos.store', $solicitud) }}" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid #f0efec;">
             @csrf
-            <label style="font-size:12px; color:#898781;">Archivo (PDF, DOC o DOCX — máx. 10 MB)</label>
-            <input type="file" name="archivo" accept=".pdf,.doc,.docx" required
+            <label style="font-size:12px; color:#898781;">Archivo (PDF, Word, Excel o foto — máx. 10 MB)</label>
+            <input type="file" name="archivo" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" required
                    style="padding:6px 0; font-size:13px;">
             <label style="font-size:12px; color:#898781;">Nombre a mostrar (opcional)</label>
             <input name="nombre" placeholder="ej. Resolución de respuesta"

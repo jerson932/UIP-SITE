@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Documento;
 use App\Models\Solicitud;
 use App\Models\SolicitudHistorial;
+use App\Services\DocumentoIntakeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -39,7 +40,7 @@ class DocumentoController extends Controller
     public function store(Request $request, Solicitud $solicitud): RedirectResponse
     {
         $data = $request->validate([
-            'archivo' => ['required', 'file', 'mimes:pdf,doc,docx', 'max:'.self::MAX_KB],
+            'archivo' => ['required', 'file', 'mimes:'.implode(',', DocumentoIntakeService::MIMES), 'max:'.self::MAX_KB],
             'nombre' => ['nullable', 'string', 'max:255'],
             'visible_ciudadano' => ['nullable', 'boolean'],
         ]);

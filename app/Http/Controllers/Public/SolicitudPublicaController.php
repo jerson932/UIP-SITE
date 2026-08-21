@@ -7,6 +7,7 @@ use App\Models\Solicitante;
 use App\Models\Solicitud;
 use App\Models\SolicitudEstado;
 use App\Models\SolicitudHistorial;
+use App\Services\DocumentoIntakeService;
 use App\Services\NotificacionService;
 use App\Support\CatalogosSolicitud;
 use App\Support\GeneradorSolicitud;
@@ -24,8 +25,10 @@ use Illuminate\View\View;
 // la UIP para lo que llega físico o por correo (Admin\SolicitudController).
 class SolicitudPublicaController extends Controller
 {
-    public function __construct(private NotificacionService $notificaciones)
-    {
+    public function __construct(
+        private NotificacionService $notificaciones,
+        private DocumentoIntakeService $documentos
+    ) {
     }
 
     public function form(): View
@@ -57,11 +60,12 @@ class SolicitudPublicaController extends Controller
             'rango_edad' => ['nullable', 'string', 'in:'.implode(',', CatalogosSolicitud::RANGOS_EDAD)],
             'departamento' => ['nullable', 'string', 'in:'.implode(',', CatalogosSolicitud::DEPARTAMENTOS)],
             'asunto' => ['required', 'string', 'min:10', 'max:5000'],
+            'documento' => ['nullable', 'file', 'mimes:'.implode(',', DocumentoIntakeService::MIMES), 'max:'.DocumentoIntakeService::MAX_KB],
         ], [
             'correo.required' => 'El correo es obligatorio: es el único respaldo para recuperar tu código de acceso si lo pierdes.',
         ]);
 
-        $solicitud = DB::transaction(function () use ($data) {
+        $solicitud = DB::transaction(function () use ($data, $request) {
             $solicitante = Solicitante::localizarOCrear([
                 'nombre' => $data['nombre'],
                 'correo' => $data['correo'],
@@ -90,6 +94,15 @@ class SolicitudPublicaController extends Controller
                 'descripcion' => 'Solicitud presentada por el ciudadano a través del portal en línea.',
                 'estado_nuevo_id' => $estadoInicial->id,
             ]);
+
+            $documento = $this->documentos->guardar($solicitud, $request->file('documento'), true, null);
+            if ($documento) {
+                SolicitudHistorial::create([
+                    'solicitud_id' => $solicitud->id,
+                    'tipo_actor' => 'ciudadano',
+                    'descripcion' => "Archivo adjunto por el ciudadano: {$documento->nombre}.",
+                ]);
+            }
 
             return $solicitud;
         });

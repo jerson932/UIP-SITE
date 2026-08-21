@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Documento;
 use App\Models\Permission;
 use App\Models\Rol;
 use App\Models\Solicitante;
@@ -9,9 +10,11 @@ use App\Models\Solicitud;
 use App\Models\SolicitudEstado;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 // Los dos puntos de entrada para CREAR una solicitud: el formulario
@@ -137,6 +140,96 @@ class SolicitudIntakeTest extends TestCase
         $this->assertEquals(5, Solicitud::count());
     }
 
+    // --- Adjunto de documento al presentar la solicitud (ambos puntos de entrada) ---
+
+    public function test_formulario_publico_permite_adjuntar_un_documento(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+        RateLimiter::clear('nueva_solicitud|127.0.0.1');
+        $this->seedEstadoInicial();
+
+        $archivo = UploadedFile::fake()->create('respaldo.pdf', 500, 'application/pdf');
+
+        $response = $this->post('/solicitudes/nueva', [
+            'nombre' => 'Ana Gómez',
+            'correo' => 'ana@example.com',
+            'asunto' => 'Solicito el listado de contratos vigentes de este año.',
+            'documento' => $archivo,
+        ]);
+
+        $response->assertStatus(200);
+        $solicitud = Solicitud::first();
+        $this->assertNotNull($solicitud);
+
+        $documento = Documento::where('solicitud_id', $solicitud->id)->first();
+        $this->assertNotNull($documento);
+        $this->assertEquals('respaldo.pdf', $documento->nombre);
+        $this->assertEquals('pdf', $documento->tipo);
+        $this->assertTrue((bool) $documento->subido_por_ciudadano);
+        $this->assertFalse((bool) $documento->visible_ciudadano);
+        $this->assertNull($documento->subido_por_user_id);
+        Storage::disk('local')->assertExists($documento->ruta_archivo);
+        $this->assertEquals(
+            1,
+            $solicitud->solicitud_historial()->where('descripcion', 'like', 'Archivo adjunto por el ciudadano%')->count()
+        );
+    }
+
+    public function test_formulario_publico_es_valido_sin_adjuntar_documento(): void
+    {
+        Mail::fake();
+        RateLimiter::clear('nueva_solicitud|127.0.0.1');
+        $this->seedEstadoInicial();
+
+        $response = $this->post('/solicitudes/nueva', [
+            'nombre' => 'Sin Adjunto',
+            'correo' => 'sinadjunto@example.com',
+            'asunto' => 'Solicitud de prueba que no adjunta ningún documento.',
+        ]);
+
+        $response->assertStatus(200);
+        $solicitud = Solicitud::first();
+        $this->assertEquals(0, Documento::where('solicitud_id', $solicitud->id)->count());
+    }
+
+    public function test_formulario_publico_rechaza_documento_con_extension_no_permitida(): void
+    {
+        RateLimiter::clear('nueva_solicitud|127.0.0.1');
+        $this->seedEstadoInicial();
+
+        $archivo = UploadedFile::fake()->create('script.exe', 100, 'application/x-msdownload');
+
+        $response = $this->post('/solicitudes/nueva', [
+            'nombre' => 'Ana Gómez',
+            'correo' => 'ana2@example.com',
+            'asunto' => 'Solicitud de prueba con un adjunto de tipo no permitido.',
+            'documento' => $archivo,
+        ]);
+
+        $response->assertSessionHasErrors('documento');
+        $this->assertEquals(0, Solicitud::count());
+    }
+
+    public function test_formulario_publico_rechaza_documento_demasiado_grande(): void
+    {
+        RateLimiter::clear('nueva_solicitud|127.0.0.1');
+        $this->seedEstadoInicial();
+
+        // MAX_KB = 10240 (10 MB); 10241 KB debe quedar rechazado.
+        $archivo = UploadedFile::fake()->create('grande.pdf', 10241, 'application/pdf');
+
+        $response = $this->post('/solicitudes/nueva', [
+            'nombre' => 'Ana Gómez',
+            'correo' => 'ana3@example.com',
+            'asunto' => 'Solicitud de prueba con un adjunto demasiado grande.',
+            'documento' => $archivo,
+        ]);
+
+        $response->assertSessionHasErrors('documento');
+        $this->assertEquals(0, Solicitud::count());
+    }
+
     // --- Registro interno (UIP) ---
 
     public function test_registro_interno_requiere_permiso_solicitudes_crear(): void
@@ -198,5 +291,55 @@ class SolicitudIntakeTest extends TestCase
 
         $this->assertEquals(4, Solicitud::distinct('codigo_ns')->count('codigo_ns'));
         $this->assertEquals(4, Solicitud::distinct('codigo_acceso')->count('codigo_acceso'));
+    }
+
+    public function test_registro_interno_permite_adjuntar_un_documento_subido_por_el_administrador(): void
+    {
+        Mail::fake();
+        Storage::fake('local');
+        $this->seedEstadoInicial();
+        $admin = $this->adminConPermisos(['solicitudes.crear', 'solicitudes.ver']);
+
+        $archivo = UploadedFile::fake()->create('memorial.docx', 300, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+        $this->actingAs($admin)->post('/admin/solicitudes', [
+            'nombre' => 'Carlos López',
+            'correo' => 'carlos2@example.com',
+            'medio_recepcion' => 'fisica',
+            'asunto' => 'Solicita copia de un expediente administrativo con adjunto.',
+            'documento' => $archivo,
+        ]);
+
+        $solicitud = Solicitud::first();
+        $documento = Documento::where('solicitud_id', $solicitud->id)->first();
+        $this->assertNotNull($documento);
+        $this->assertEquals('memorial.docx', $documento->nombre);
+        $this->assertEquals('docx', $documento->tipo);
+        $this->assertFalse((bool) $documento->subido_por_ciudadano);
+        $this->assertFalse((bool) $documento->visible_ciudadano);
+        $this->assertEquals($admin->id, $documento->subido_por_user_id);
+        Storage::disk('local')->assertExists($documento->ruta_archivo);
+        $this->assertEquals(
+            1,
+            $solicitud->solicitud_historial()->where('descripcion', 'like', 'Archivo adjunto al registrar la solicitud%')->count()
+        );
+    }
+
+    public function test_registro_interno_rechaza_documento_con_extension_no_permitida(): void
+    {
+        $this->seedEstadoInicial();
+        $admin = $this->adminConPermisos(['solicitudes.crear']);
+
+        $archivo = UploadedFile::fake()->create('virus.exe', 100, 'application/x-msdownload');
+
+        $response = $this->actingAs($admin)->post('/admin/solicitudes', [
+            'nombre' => 'Carlos López',
+            'medio_recepcion' => 'fisica',
+            'asunto' => 'Solicitud de prueba con un adjunto de tipo no permitido.',
+            'documento' => $archivo,
+        ]);
+
+        $response->assertSessionHasErrors('documento');
+        $this->assertEquals(0, Solicitud::count());
     }
 }

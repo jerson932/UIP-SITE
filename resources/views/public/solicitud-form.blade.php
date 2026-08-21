@@ -62,7 +62,7 @@
       </div>
     @endif
 
-    <form method="POST" action="{{ route('solicitudes.nueva.store') }}">
+    <form method="POST" action="{{ route('solicitudes.nueva.store') }}" enctype="multipart/form-data">
       @csrf
 
       <div class="campo">
@@ -116,6 +116,12 @@
       <div class="campo">
         <label for="asunto">¿Qué información solicitas?</label>
         <textarea id="asunto" name="asunto" rows="5" required minlength="10">{{ old('asunto') }}</textarea>
+      </div>
+
+      <div class="campo">
+        <label for="documento">Adjuntar un documento (opcional)</label>
+        <input id="documento" type="file" name="documento" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png">
+        <p class="nota">PDF, Word, Excel o foto — máximo 10 MB.</p>
       </div>
 
       <button type="submit">Enviar solicitud</button>
