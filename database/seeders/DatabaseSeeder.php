@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             SolicitudEstadoSeeder::class,
             DependenciaSeeder::class,
             PlantillaCorreoSeeder::class,
+            PlantillaDocumentoSeeder::class,
             FeriadoSeeder::class,
             ConfiguracionSeeder::class,
             UserSeeder::class,

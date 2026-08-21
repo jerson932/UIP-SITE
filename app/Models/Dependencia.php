@@ -17,6 +17,7 @@ class Dependencia extends Model
         'nombre',
         'descripcion',
         'activa',
+        'plantilla_clave',
     ];
 
     protected $casts = [

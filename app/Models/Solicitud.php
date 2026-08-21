@@ -18,6 +18,8 @@ class Solicitud extends Model
     protected $fillable = [
         'codigo_ns',
         'contrasena',
+        'rc',
+        'folio',
         'codigo_acceso',
         'solicitante_id',
         'asunto',

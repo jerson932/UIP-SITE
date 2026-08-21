@@ -19,6 +19,8 @@ class Documento extends Model
         'nombre',
         'ruta_archivo',
         'tipo',
+        'no_oficio',
+        'no_providencia',
         'visible_ciudadano',
         'subido_por_user_id',
         'subido_por_ciudadano',

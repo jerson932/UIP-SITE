@@ -155,6 +155,48 @@
         @endif
       </div>
 
+      @if ($solicitud->dependencia && auth()->user()->hasPermission('solicitudes.generar_documento'))
+        <div class="card">
+          <h4 style="margin:0 0 10px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">
+            Generar {{ $tipoDocumentoOficial === 'oficio' ? 'Oficio' : 'Providencia' }}
+          </h4>
+          <p style="font-size:12px; color:#898781; margin:0 0 10px;">
+            Traslado hacia <strong>{{ $solicitud->dependencia->nombre }}</strong>. El documento generado queda interno (no visible al ciudadano) y se puede descargar desde la pestaña "Documentos".
+          </p>
+          <form method="POST" action="{{ route('admin.solicitudes.documento_oficial', $solicitud) }}" style="display:flex; flex-direction:column; gap:8px;">
+            @csrf
+            <div style="display:flex; gap:8px;">
+              <div style="flex:1;">
+                <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">RC</label>
+                <input name="rc" value="{{ $solicitud->rc }}" placeholder="ej. 1234"
+                       style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+              </div>
+              <div style="flex:1;">
+                <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">FOLIO</label>
+                <input name="folio" value="{{ $solicitud->folio }}" placeholder="ej. 56"
+                       style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+              </div>
+            </div>
+            @if ($tipoDocumentoOficial === 'oficio')
+              <div>
+                <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">No. de oficio</label>
+                <input name="no_oficio" placeholder="ej. 123-2026" required
+                       style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+              </div>
+            @else
+              <div>
+                <label style="font-size:12px; color:#898781; display:block; margin-bottom:4px;">No. de providencia</label>
+                <input name="no_providencia" placeholder="ej. 123-2026" required
+                       style="width:100%; padding:8px 10px; border:1px solid #d8d6cf; border-radius:7px; font-size:13px;">
+              </div>
+            @endif
+            <button type="submit" style="align-self:flex-start; background:#4a3aa7; color:#fff; border:0; border-radius:7px; padding:8px 14px; font-size:13px; font-weight:600; cursor:pointer;">
+              Generar {{ $tipoDocumentoOficial === 'oficio' ? 'oficio' : 'providencia' }}
+            </button>
+          </form>
+        </div>
+      @endif
+
       <div class="card">
         <h4 style="margin:0 0 10px; font-size:13px; color:#898781; text-transform:uppercase; letter-spacing:.03em;">Fechas</h4>
         <div style="font-size:13px;"><span style="color:#898781;">Fecha de vencimiento</span><br>{{ $solicitud->fecha_vencimiento?->format('d/m/Y') ?? 'Pendiente de ingresar' }}</div>
@@ -315,7 +357,7 @@
         @forelse ($solicitud->documentos as $doc)
           <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f0efec; padding:9px 0; font-size:13px; gap:10px;">
             <div>
-              <div>{{ $doc->nombre }}</div>
+              <div>{{ $doc->nombre }}@if ($doc->no_oficio) (No. {{ $doc->no_oficio }}) @elseif ($doc->no_providencia) (No. {{ $doc->no_providencia }}) @endif</div>
               <div style="color:#898781; font-size:12px;">{{ strtoupper($doc->tipo) }} · {{ $doc->created_at?->format('d/m/Y') }}@if ($doc->subido_por_user) · {{ $doc->subido_por_user->name }} @endif</div>
             </div>
             <div style="display:flex; align-items:center; gap:10px; flex:0 0 auto;">

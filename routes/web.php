@@ -93,6 +93,10 @@ Route::middleware(['auth', 'active'])->prefix('admin')->name('admin.')->group(fu
         ->middleware('permission:solicitudes.asignar_dependencia')
         ->name('solicitudes.dependencia');
 
+    Route::post('/solicitudes/{solicitud}/documento-oficial', [SolicitudActionController::class, 'generarDocumentoOficial'])
+        ->middleware('permission:solicitudes.generar_documento')
+        ->name('solicitudes.documento_oficial');
+
     Route::post('/solicitudes/{solicitud}/finalizar', [SolicitudActionController::class, 'finalizar'])
         ->middleware('permission:solicitudes.finalizar')
         ->name('solicitudes.finalizar');

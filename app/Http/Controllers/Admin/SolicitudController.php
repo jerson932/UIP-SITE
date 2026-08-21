@@ -9,6 +9,7 @@ use App\Models\Solicitud;
 use App\Models\SolicitudEstado;
 use App\Models\SolicitudHistorial;
 use App\Services\DocumentoIntakeService;
+use App\Services\DocumentoOficialService;
 use App\Services\NotificacionService;
 use App\Support\CatalogosSolicitud;
 use App\Support\GeneradorSolicitud;
@@ -28,7 +29,8 @@ class SolicitudController extends Controller
 {
     public function __construct(
         private NotificacionService $notificaciones,
-        private DocumentoIntakeService $documentos
+        private DocumentoIntakeService $documentos,
+        private DocumentoOficialService $documentosOficiales
     ) {
     }
 
@@ -68,6 +70,7 @@ class SolicitudController extends Controller
             'solicitud' => $solicitud,
             'dependencias' => Dependencia::with('enlaces')->where('activa', true)->orderBy('nombre')->get(),
             'tab' => request()->string('tab', 'seguimiento')->toString(),
+            'tipoDocumentoOficial' => $this->documentosOficiales->tipoParaDependencia($solicitud->dependencia),
         ]);
     }
 

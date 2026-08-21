@@ -8,6 +8,7 @@ use App\Models\Enlace;
 use App\Models\Solicitud;
 use App\Models\SolicitudEstado;
 use App\Models\SolicitudHistorial;
+use App\Services\DocumentoOficialService;
 use App\Services\NotificacionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,8 +24,10 @@ use Illuminate\Validation\ValidationException;
 // partir de las plantillas ya sembradas en "plantillas_correo".
 class SolicitudActionController extends Controller
 {
-    public function __construct(private NotificacionService $notificaciones)
-    {
+    public function __construct(
+        private NotificacionService $notificaciones,
+        private DocumentoOficialService $documentosOficiales
+    ) {
     }
 
     private function historial(Solicitud $solicitud, string $texto, ?int $estadoAnteriorId = null, ?int $estadoNuevoId = null): void
@@ -142,6 +145,47 @@ class SolicitudActionController extends Controller
         // ciudadano) — enviar una aquí requeriría inventar un texto que no
         // se ha validado contra los correos reales de la UIP.
         return back()->with('status', 'Dependencia asignada.');
+    }
+
+    // Genera el Oficio o la Providencia de traslado a la dependencia ya
+    // asignada (Fase 19), a partir de las plantillas .docx reales
+    // (DocumentoOficialService). RC/FOLIO/No. de oficio/providencia son
+    // manuales — el sistema no los inventa, igual que el resto de números
+    // "oficiales" en este expediente (spec: "el número oficial ... lo
+    // asigna manualmente el administrador"). Se puede generar más de una
+    // vez (p. ej. si se reasigna a otra dependencia): cada generación deja
+    // su propio Documento y su propia entrada en el historial, sin
+    // reemplazar la anterior.
+    public function generarDocumentoOficial(Request $request, Solicitud $solicitud): RedirectResponse
+    {
+        if (! $solicitud->dependencia) {
+            return back()->with('error', 'Debe asignarse una dependencia antes de generar el oficio/providencia.');
+        }
+
+        $tipo = $this->documentosOficiales->tipoParaDependencia($solicitud->dependencia);
+
+        $data = $request->validate([
+            'rc' => ['nullable', 'string', 'max:50'],
+            'folio' => ['nullable', 'string', 'max:50'],
+            'no_oficio' => [$tipo === 'oficio' ? 'required' : 'nullable', 'string', 'max:50'],
+            'no_providencia' => [$tipo === 'providencia' ? 'required' : 'nullable', 'string', 'max:50'],
+        ], [
+            'no_oficio.required' => 'El número de oficio es obligatorio para esta dependencia.',
+            'no_providencia.required' => 'El número de providencia es obligatorio para esta dependencia.',
+        ]);
+
+        try {
+            $documento = $this->documentosOficiales->generar($solicitud, $data, auth()->id());
+        } catch (\RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $this->historial(
+            $solicitud,
+            ($tipo === 'oficio' ? 'Oficio' : 'Providencia')." generado hacia {$solicitud->dependencia->nombre}: {$documento->nombre}."
+        );
+
+        return back()->with('status', ucfirst($tipo).' generado. Puede descargarlo desde la pestaña "Documentos".');
     }
 
     public function finalizar(Request $request, Solicitud $solicitud): RedirectResponse

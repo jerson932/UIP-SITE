@@ -8,7 +8,9 @@
     "require": {
         "php": "^8.3",
         "laravel/framework": "^13.17",
-        "laravel/tinker": "^3.0"
+        "laravel/tinker": "^3.0",
+        "phpoffice/math": "0.3.0",
+        "phpoffice/phpword": "1.4.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -82,5 +84,17 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "path",
+            "url": "packages/phpoffice/phpword",
+            "options": { "symlink": false }
+        },
+        {
+            "type": "path",
+            "url": "packages/phpoffice/math",
+            "options": { "symlink": false }
+        }
+    ]
 }

@@ -21,6 +21,7 @@ class PermissionSeeder extends Seeder
             'solicitudes.validar' => 'Aceptar/rechazar una solicitud (es informacion publica / es competencia)',
             'solicitudes.asignar_contrasena' => 'Asignar la Contraseña No. una vez aceptada la solicitud',
             'solicitudes.asignar_dependencia' => 'Asignar dependencia/enlace responsable',
+            'solicitudes.generar_documento' => 'Generar el Oficio o Providencia de traslado a la dependencia asignada',
             'solicitudes.finalizar' => 'Finalizar un expediente',
             'solicitudes.ajustar_vencimiento' => 'Ajustar manualmente la fecha de vencimiento (recurso de revision, casos especiales)',
             'actuaciones.prorroga' => 'Registrar prorroga',
