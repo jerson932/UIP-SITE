@@ -142,6 +142,13 @@ class EnlaceAdminController extends Controller
                     ? Rule::unique('users', 'email')->ignore($enlace->user_id)
                     : 'unique:users,email',
             ],
+        ], [
+            // Mensaje explícito: el proyecto corre con APP_LOCALE=es pero
+            // no tiene archivos de idioma en español instalados (solo el
+            // "en" que trae Laravel por defecto), así que sin este mensaje
+            // a medida el error de "unique" se muestra como la clave cruda
+            // "validation.unique" en vez de una frase legible.
+            'email.unique' => 'Ese correo ya está en uso por otra cuenta del sistema (puede ser la tuya u otro usuario) — usa un correo distinto para el acceso de este enlace.',
         ]);
 
         $rolEnlace = Rol::where('nombre', 'Enlace')->first();
